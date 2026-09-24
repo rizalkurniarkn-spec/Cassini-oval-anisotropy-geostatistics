@@ -1,16 +1,22 @@
 # Code index
 
-This repository contains six research scripts organized by workflow and laterite zone. Only the **Ellipse** and **Cassini Oval** anisotropy models are included in the model comparisons.
+The repository contains eight research scripts. Model comparisons include only **Ellipse** and **Cassini Oval** anisotropy.
 
-| File | Purpose | Public example input |
-|---|---|---|
-| `src/nls_fitting_limonite.py` | NLS fitting of elliptical and affine-scaled Cassini Oval directional ranges for limonite | Directional ranges embedded in the script |
-| `src/nls_fitting_saprolite.py` | NLS fitting of elliptical and affine-scaled Cassini Oval directional ranges for saprolite | Directional ranges embedded in the script |
-| `src/ordinary_kriging_limonite.py` | Ordinary Kriging comparison: Ellipse vs Cassini Oval for limonite | `example/synthetic_thickness.xlsx` |
-| `src/ordinary_kriging_saprolite.py` | Ordinary Kriging comparison: Ellipse vs Cassini Oval for saprolite, including diagnostics/LOOCV available in the supplied workflow | `example/synthetic_thickness.xlsx` |
-| `src/sgs_limonite.py` | Sequential Gaussian Simulation comparison: Ellipse vs Cassini Oval for limonite | `example/synthetic_thickness.xlsx` |
-| `src/sgs_saprolite.py` | Sequential Gaussian Simulation comparison: Ellipse vs Cassini Oval for saprolite | `example/synthetic_thickness.xlsx` |
+| File | Data scale | Purpose | Public example input |
+|---|---|---|---|
+| `src/nls_fitting_limonite.py` | Raw | NLS fitting of Ellipse and Cassini Oval to limonite directional ranges | Directional ranges embedded in the script |
+| `src/nls_fitting_saprolite.py` | Raw | NLS fitting of Ellipse and Cassini Oval to saprolite directional ranges | Directional ranges embedded in the script |
+| `src/nls_fitting_limonite_gaussian.py` | Gaussian | NLS fitting of Ellipse and Cassini Oval to Gaussian limonite directional ranges | Directional ranges embedded in the script |
+| `src/nls_fitting_saprolite_gaussian.py` | Gaussian | NLS fitting of Ellipse and Cassini Oval to Gaussian saprolite directional ranges | Directional ranges embedded in the script |
+| `src/ordinary_kriging_limonite.py` | Raw | Ordinary Kriging and related diagnostics for limonite | `example/synthetic_thickness.xlsx` |
+| `src/ordinary_kriging_saprolite.py` | Raw | Ordinary Kriging and related diagnostics for saprolite | `example/synthetic_thickness.xlsx` |
+| `src/sgs_limonite.py` | Gaussian | Sequential Gaussian Simulation and ensemble diagnostics for limonite | `example/synthetic_thickness.xlsx` |
+| `src/sgs_saprolite.py` | Gaussian | Sequential Gaussian Simulation and ensemble diagnostics for saprolite | `example/synthetic_thickness.xlsx` |
 
-## Important data note
+## Parameter naming
 
-The Excel/CSV file in `example/` is synthetic and contains no original exploration data. The original drillhole dataset is not included because it is subject to confidentiality restrictions.
+The manuscript and public output tables report Cassini Oval parameters as `a`, `b`, and focus-axis azimuth. The symbol `b` is used consistently for the Cassini Oval constant in the public code outputs.
+
+## Data note
+
+The files in `example/` are synthetic and contain no original exploration data. The original drillhole dataset is excluded because it is subject to confidentiality restrictions.
