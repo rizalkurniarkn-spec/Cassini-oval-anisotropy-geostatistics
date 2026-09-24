@@ -8,7 +8,18 @@ import sys
 import numpy as np
 import pandas as pd
 
-ROOT = Path(__file__).resolve().parents[1]
+def resolve_repo_root():
+    """Return repository root in both terminal scripts and Jupyter notebooks."""
+    if "__file__" in globals():
+        return Path(__file__).resolve().parents[1]
+    cwd = Path.cwd().resolve()
+    for candidate in (cwd, *cwd.parents):
+        if (candidate / "src").is_dir() and (candidate / "example").is_dir():
+            return candidate
+    return cwd
+
+
+ROOT = resolve_repo_root()
 SRC = ROOT / "src"
 sys.path.insert(0, str(SRC))
 
