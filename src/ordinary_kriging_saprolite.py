@@ -1,16 +1,16 @@
 # ============================================================
-# ORDINARY KRIGING OF SAPROLITE THICKNESS - ELLIPSE AND CASSINI OVAL
+
 # Models: 1) Ellipse | 2) Affine-scaled Cassini Oval
 #
 # Public-repository version. The default input is a synthetic example dataset.
 # Replace DATA_FILE with an authorized local dataset to reproduce private-data runs.
 #
-# Revisi utama:
-# - Boundary ortogonal mengikuti sebaran data, offset 25 m (tanpa Shapely)
-# - Lubang internal boundary diisi
-# - Nilai Ketebalan SAP kosong pada Excel -> 0
-# - Search radius SEMUA model = 400 m, berbentuk LINGKARAN
-# - Anisotropi hanya memengaruhi variogram/kriging, bukan search radius
+
+
+
+
+
+
 # - Ordinary Kriging + spherical variogram
 # ============================================================
 
@@ -45,33 +45,33 @@ REPO_ROOT = resolve_repo_root()
 
 
 # ============================================================
-# 1. PENGATURAN UTAMA
+
 # ============================================================
 DATA_FILE, SHEET_NAME = str(REPO_ROOT / "example" / "synthetic_thickness.xlsx"), 0
-X_COL, Y_COL, Z_COL = None, None, "Ketebalan SAP"
+X_COL, Y_COL, Z_COL = None, None, "Saprolite Thickness"
 GRID_RES = 12.5
 DRILL_SPACING = 25.0
 BOUNDARY_OFFSET = DRILL_SPACING
 FILL_INTERNAL_BOUNDARY_HOLES = True
 MASK_OUTSIDE_BOUNDARY = True
-BOUNDARY_CELL = DRILL_SPACING        # raster boundary 25 m agar bentuk lebih rapi
-BOUNDARY_CLOSE_ITERS = 1             # tutup celah/lekukan kecil pada boundary
+BOUNDARY_CELL = DRILL_SPACING        
+BOUNDARY_CLOSE_ITERS = 1             # close small boundary gaps and indentations
 
-# Search neighborhood sama untuk SEMUA model
+
 SEARCH_RADIUS = 400.0            # meter
 NMIN, NMAX = 6, 12
-ALLOW_FEWER_WITHIN_RADIUS = True # bila kandidat < NMIN, tetap pakai kandidat yang tersedia
-MIN_FALLBACK_NEIGHBORS = 1       # agar grid di dalam boundary tidak bolong, tetap hanya memakai data <= 400 m
+ALLOW_FEWER_WITHIN_RADIUS = True 
+MIN_FALLBACK_NEIGHBORS = 1       
 
 NUGGET, PARTIAL_SILL = 22.86, 9.67
 SILL = NUGGET + PARTIAL_SILL
 EPS = 1e-10
 SAVE_FIGS, EXPORT_EXCEL = True, True
-# Export hasil kriging segera setelah estimasi grid selesai
-EXPORT_KRIGING_EARLY = True
-STOP_AFTER_KRIGING_EXPORT = True   # True = berhenti setelah Excel estimasi dibuat
 
-# Semua hasil otomatis disimpan ke folder baru ini
+EXPORT_KRIGING_EARLY = True
+STOP_AFTER_KRIGING_EXPORT = True   
+
+
 OUTPUT_DIR = str(REPO_ROOT / "outputs" / "ordinary_kriging_saprolite")
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
@@ -83,35 +83,35 @@ DIAGNOSTIC_SHOW_LABELS = True
 DIAGNOSTIC_ZOOM_FACTOR = 1.12
 
 # ============================================================
-# 2. PARAMETER NLS MODEL DIRECTIONAL RANGE
+
 # ============================================================
 ELLIPSE_MAJOR, ELLIPSE_MINOR, ELLIPSE_PHI_AZ = 176.11040, 98.47138, 67.69179
-CASSINI_A, CASSINI_C = 118.67893, 140.04114
-CASSINI_SX, CASSINI_SY, CASSINI_PHI_AZ = 0.89533, 1.11691, 65.60143
-MODELS = ["Elips", "Cassini"]
+CASSINI_A, CASSINI_B = 118.67893, 140.04114
+_CASSINI_INTERNAL_SCALE_X, _CASSINI_INTERNAL_SCALE_Y, CASSINI_PHI_AZ = 0.89533, 1.11691, 65.60143
+MODELS = ["Ellipse", "Cassini"]
 
 parameter_model_df = pd.DataFrame([
-    {"Model":"Elips", "Range_m":np.nan, "Major_m":ELLIPSE_MAJOR, "Minor_m":ELLIPSE_MINOR, "Azimuth_deg":ELLIPSE_PHI_AZ, "Cassini_a_m":np.nan, "Cassini_c_m":np.nan, "sx":np.nan, "sy":np.nan},
-    {"Model":"Cassini", "Range_m":np.nan, "Major_m":np.nan, "Minor_m":np.nan, "Azimuth_deg":CASSINI_PHI_AZ, "Cassini_a_m":CASSINI_A, "Cassini_c_m":CASSINI_C, "sx":CASSINI_SX, "sy":CASSINI_SY}
+    {"Model":"Ellipse", "Range_m":np.nan, "Major_m":ELLIPSE_MAJOR, "Minor_m":ELLIPSE_MINOR, "Azimuth_deg":ELLIPSE_PHI_AZ, "Cassini_a_m":np.nan, "Cassini_b_m":np.nan},
+    {"Model":"Cassini", "Range_m":np.nan, "Major_m":np.nan, "Minor_m":np.nan, "Azimuth_deg":CASSINI_PHI_AZ, "Cassini_a_m":CASSINI_A, "Cassini_b_m":CASSINI_B}
 ])
 
-print("=" * 70, "\nPARAMETER ESTIMASI\n" + "=" * 70, sep="")
+print("=" * 70, "\nESTIMATION PARAMETERS\n" + "=" * 70, sep="")
 print(f"GRID_RES              = {GRID_RES} m")
 print(f"BOUNDARY_OFFSET       = {BOUNDARY_OFFSET} m")
-print(f"SEARCH_RADIUS         = {SEARCH_RADIUS} m (lingkaran, semua model)")
+print(f"SEARCH_RADIUS         = {SEARCH_RADIUS} m (circular, both models)")
 print(f"NMIN / NMAX           = {NMIN} / {NMAX}")
 print(f"NUGGET / PARTIAL SILL = {NUGGET} / {PARTIAL_SILL}")
-print("Anisotropi digunakan pada variogram, bukan pada search neighborhood.")
-print(f"Folder output          = {os.path.abspath(OUTPUT_DIR)}\n")
+print("Anisotropy is applied in the variogram, not in the search neighborhood.")
+print(f"Output folder          = {os.path.abspath(OUTPUT_DIR)}\n")
 
 # ============================================================
-# 3. BACA DATA EXCEL
+
 # ============================================================
 def find_excel_file(name):
     if os.path.exists(name): return name
-    c = glob.glob("*Ketebalan*.xlsx") + glob.glob("*Ketebalan*.xls")
+    c = glob.glob("*Thickness*.xlsx") + glob.glob("*Thickness*.xls")
     if c: return c[0]
-    raise FileNotFoundError("Ketebalan.xlsx tidak ditemukan.")
+    raise FileNotFoundError("Input workbook was not found.")
 
 
 def detect_column(df, candidates):
@@ -129,18 +129,18 @@ def load_thickness_data():
     df = pd.read_excel(path, sheet_name=SHEET_NAME)
     xc = X_COL or detect_column(df, ["x", "easting", "east"])
     yc = Y_COL or detect_column(df, ["y", "northing", "north"])
-    zc = Z_COL if Z_COL in df.columns else detect_column(df, ["ketebalan sap", "ketebalan", "z"])
+    zc = Z_COL if Z_COL in df.columns else detect_column(df, ["saprolite thickness", "thickness", "z"])
     if xc is None or yc is None or zc is None:
-        raise ValueError(f"Kolom X/Y/Z tidak terdeteksi. Kolom tersedia: {df.columns.tolist()}")
+        raise ValueError(f"X/Y/Z columns could not be detected. Available columns: {df.columns.tolist()}")
 
     d = df[[xc, yc, zc]].copy(); d.columns = ["X", "Y", "Z"]
     d[["X", "Y"]] = d[["X", "Y"]].apply(pd.to_numeric, errors="coerce")
-    d["Z"] = pd.to_numeric(d["Z"], errors="coerce").fillna(0.0)  # kosong = 0
+    d["Z"] = pd.to_numeric(d["Z"], errors="coerce").fillna(0.0)  
     d = d.dropna(subset=["X", "Y"]).reset_index(drop=True)
 
-    print("=" * 70, "\nDATA BERHASIL DIBACA\n" + "=" * 70, sep="")
+    print("=" * 70, "\nDATA LOADED SUCCESSFULLY\n" + "=" * 70, sep="")
     print(f"File = {path} | X = {xc} | Y = {yc} | Z = {zc}")
-    print(f"Jumlah data = {len(d)} | Z min/max/mean = {d.Z.min():.3f} / {d.Z.max():.3f} / {d.Z.mean():.3f}\n")
+    print(f"Number of data = {len(d)} | Z min/max/mean = {d.Z.min():.3f} / {d.Z.max():.3f} / {d.Z.mean():.3f}\n")
     return d
 
 
@@ -149,7 +149,7 @@ coords = data[["X", "Y"]].values
 x_data, y_data, z_data = data.X.values, data.Y.values, data.Z.values
 
 # ============================================================
-# 4. FUNGSI AZIMUTH GEOLOGI
+
 # ============================================================
 def azimuth_to_unit_vector(az):
     a = np.deg2rad(np.asarray(az, float)); return np.sin(a), np.cos(a)
@@ -163,7 +163,7 @@ def phi_az_to_theta_math(phi):
     return np.deg2rad((90.0 - phi) % 360.0)
 
 # ============================================================
-# 5. FUNGSI RANGE MASING-MASING MODEL
+
 # ============================================================
 
 
@@ -178,12 +178,12 @@ def ellipse_range_from_azimuth(az):
 def cassini_range_from_azimuth(az):
     az = np.asarray(az, float); ux, uy = azimuth_to_unit_vector(az)
     t = phi_az_to_theta_math(CASSINI_PHI_AZ); ct, st = np.cos(t), np.sin(t)
-    X = (ux*ct + uy*st) / CASSINI_SX
-    Y = (-ux*st + uy*ct) / CASSINI_SY
+    X = (ux*ct + uy*st) / _CASSINI_INTERNAL_SCALE_X
+    Y = (-ux*st + uy*ct) / _CASSINI_INTERNAL_SCALE_Y
     S = X**2 + Y**2
     qa = S**2
     qb = CASSINI_A**2 * (2*S - 4*X**2)
-    qc = CASSINI_A**4 - CASSINI_C**4
+    qc = CASSINI_A**4 - CASSINI_B**4
     disc = np.maximum(qb**2 - 4*qa*qc, 0.0)
     with np.errstate(divide="ignore", invalid="ignore"):
         q1 = (-qb + np.sqrt(disc)) / (2*qa)
@@ -193,27 +193,27 @@ def cassini_range_from_azimuth(az):
 
 
 def get_directional_range(az, model):
-    return {"Elips": ellipse_range_from_azimuth,
+    return {"Ellipse": ellipse_range_from_azimuth,
             "Cassini": cassini_range_from_azimuth}[model](az)
 
 # ============================================================
-# 6. VARIOGRAM SPHERICAL
+
 # ============================================================
 def spherical_variogram_from_dxdy(dx, dy, model):
     dx, dy = np.asarray(dx, float), np.asarray(dy, float)
     h = np.hypot(dx, dy)
     a = get_directional_range(pair_azimuth_from_dxdy(dx, dy), model)
     if np.any(~np.isfinite(a) | (a <= EPS)):
-        raise ValueError(f"Directional range tidak valid: {model}")
+        raise ValueError(f"Invalid directional range: {model}")
     t = h / a
     return np.where(h <= EPS, 0.0,
                     np.where(t <= 1.0, NUGGET + PARTIAL_SILL*(1.5*t - 0.5*t**3), SILL))
 
 # ============================================================
-# 7. SEARCH RADIUS LINGKARAN 400 m + ORDINARY KRIGING
+
 # ============================================================
 def get_neighbors(x0, y0, coords_train):
-    """Semua model: Euclidean search circle <= 400 m, maksimum NMAX."""
+    """Both models use a Euclidean search circle <= 400 m with at most NMAX samples."""
     dist = np.hypot(coords_train[:, 0] - x0, coords_train[:, 1] - y0)
     idx = np.where(dist <= SEARCH_RADIUS + EPS)[0]
     if len(idx) >= NMIN:
@@ -241,7 +241,7 @@ def ordinary_kriging_point(x0, y0, coords_train, z_train, model):
     return pred, kvar, n, int(np.sum(w < 0)), float(w.min()), float(w.max())
 
 # ============================================================
-# 8. DIAGNOSTIK SEARCH NEIGHBORHOOD DAN BOBOT KRIGING
+
 # ============================================================
 def diagnostic_target():
     if DIAGNOSTIC_TARGET_MODE.lower() == "sample_index":
@@ -283,7 +283,7 @@ def plot_diagnostic(d, observed=np.nan):
     ax.scatter(tr[:,0], tr[:,1], s=12, alpha=.25, label="Conditioning data")
     ax.add_patch(Circle((x0,y0), SEARCH_RADIUS, fill=False, ls="--", lw=2,
                         label=f"Search circle = {SEARCH_RADIUS:.0f} m"))
-    # anisotropic variogram range shown only as reference
+    
     az=np.linspace(0,360,720); rr=get_directional_range(az,d["model"]); ar=np.deg2rad(az)
     ax.plot(x0+rr*np.sin(ar), y0+rr*np.cos(ar), lw=1.6, label=f"{d['model']} variogram range")
     pos,neg=idx[w>=0],idx[w<0]
@@ -316,10 +316,10 @@ def plot_diagnostic(d, observed=np.nan):
 
 def run_neighborhood_diagnostics():
     x0,y0,obs,tr,ztr,ids=diagnostic_target(); out={}
-    print("="*70,"\nDIAGNOSTIK SEARCH NEIGHBORHOOD: CIRCLE 400 m\n"+"="*70,sep="")
+    print("="*70,"\nSEARCH-NEIGHBORHOOD DIAGNOSTIC: CIRCLE 400 m\n"+"="*70,sep="")
     for m in MODELS:
         d=solve_diagnostic(x0,y0,tr,ztr,m,ids)
-        if d is None: print(f"{m}: neighbour dalam 400 m tidak mencukupi."); continue
+        if d is None: print(f"{m}: neighbors within 400 m are insufficient."); continue
         out[m]=d; plot_diagnostic(d,obs)
         print(f"{m}: prediction={d['pred']:.4f}, n={len(d['idx'])}, negative={np.sum(d['w']<0)}")
     return out
@@ -328,10 +328,10 @@ def run_neighborhood_diagnostics():
 neighborhood_diagnostic_output = run_neighborhood_diagnostics() if RUN_NEIGHBOR_DIAGNOSTIC else None
 
 # ============================================================
-# 9. MEMBUAT BOUNDARY ORTOGONAL DAN GRID ESTIMASI
+
 # ============================================================
 class OrthogonalBoundary:
-    """Boundary ortogonal tanpa Shapely, dibentuk dari union kotak ±offset."""
+    """Build an orthogonal boundary from the union of offset boxes without Shapely."""
     def __init__(self, x_edges, y_edges, mask):
         self.x_edges = np.asarray(x_edges, float)
         self.y_edges = np.asarray(y_edges, float)
@@ -359,9 +359,9 @@ class OrthogonalBoundary:
 
 def build_orthogonal_boundary(xy, offset, cell=BOUNDARY_CELL):
     """
-    Boundary ortogonal yang lebih rapi memakai raster reguler 25 m.
-    Dasar boundary tetap union kotak ±offset dari tiap titik bor,
-    kemudian dilakukan closing dan fill holes agar tidak bolong.
+    A regular 25 m raster is used to construct a cleaner orthogonal boundary.
+    The boundary remains the union of offset boxes around each drillhole,
+    followed by closing and hole filling.
     """
     xy = np.asarray(xy, float)
     minx = np.floor((xy[:, 0].min() - offset) / cell) * cell
@@ -391,7 +391,7 @@ def build_orthogonal_boundary(xy, offset, cell=BOUNDARY_CELL):
 
 
 def points_inside_geometry(g, xy):
-    """Uji titik terhadap raster-cell boundary; titik pada garis boundary ikut diterima."""
+    """Test points against the raster-cell boundary; points on the boundary are included."""
     xy = np.asarray(xy, float); x, y = xy[:, 0], xy[:, 1]
     ix_a = np.searchsorted(g.x_edges, x, side="right") - 1
     ix_b = np.searchsorted(g.x_edges, x, side="left") - 1
@@ -416,31 +416,31 @@ XX, YY = np.meshgrid(x_grid, y_grid)
 grid_points = np.c_[XX.ravel(), YY.ravel()]
 inside_mask = (points_inside_geometry(estimation_boundary, grid_points)
                if MASK_OUTSIDE_BOUNDARY else np.ones(len(grid_points), bool))
-print("="*70, "\nGRID ESTIMASI\n"+"="*70, sep="")
-print(f"Boundary offset = {BOUNDARY_OFFSET:.1f} m | cell = {BOUNDARY_CELL:.1f} m | bentuk = ortogonal rapi | luas = {estimation_boundary.area:.1f} m²")
-print(f"Grid total = {len(grid_points)} | diestimasi = {inside_mask.sum()} | lubang internal = diisi\n")
+print("="*70, "\nESTIMATION GRID\n"+"="*70, sep="")
+print(f"Boundary offset = {BOUNDARY_OFFSET:.1f} m | cell = {BOUNDARY_CELL:.1f} m | shape = orthogonal | area = {estimation_boundary.area:.1f} m²")
+print(f"Grid total = {len(grid_points)} | estimated = {inside_mask.sum()} | internal holes = filled\n")
 
 # ============================================================
-# 10. ESTIMASI GRID UNTUK 2 MODEL
+
 # ============================================================
 grid_estimates={}; grid_variances_raw={}; grid_nneighbors={}; grid_nnegative_weights={}
 valid_idx=np.where(inside_mask)[0]
 for model in MODELS:
-    print(f"Estimasi grid model: {model}")
+    print(f"Estimating grid with model: {model}")
     zf=np.full(len(grid_points),np.nan); vf=zf.copy(); nf=zf.copy(); ng=zf.copy()
     for count,gi in enumerate(valid_idx,1):
         out=ordinary_kriging_point(*grid_points[gi],coords,z_data,model)
         zf[gi],vf[gi],nf[gi],ng[gi]=out[:4]
-        if count%500==0: print(f"  selesai {count}/{len(valid_idx)} grid")
+        if count%500==0: print(f"  completed {count}/{len(valid_idx)} grid nodes")
     grid_estimates[model]=zf.reshape(XX.shape); grid_variances_raw[model]=vf.reshape(XX.shape)
     grid_nneighbors[model]=nf.reshape(XX.shape); grid_nnegative_weights[model]=ng.reshape(XX.shape)
-print("Estimasi grid selesai.\n")
+print("Grid estimation completed.\n")
 
 # ============================================================
-# 10A. EXPORT HASIL ESTIMASI KRIGING KE EXCEL (LANGSUNG)
+
 # ============================================================
-# Output ini dibuat segera setelah estimasi grid selesai agar tidak perlu
-# menunggu statistik, plotting, dan LOOCV.
+
+
 if EXPORT_KRIGING_EARLY:
     kriging_export_df = pd.DataFrame({
         "X": XX.ravel(),
@@ -451,12 +451,12 @@ if EXPORT_KRIGING_EARLY:
     for m in MODELS:
         kriging_export_df[f"Estimated_SAP_{m}"] = grid_estimates[m].ravel()
 
-    # Hanya grid di dalam boundary yang dipakai untuk analisis/perbandingan
+    
     kriging_export_inside_df = kriging_export_df.loc[
         kriging_export_df["Inside_Boundary"]
     ].copy()
 
-    # Hapus baris apabila seluruh model tidak menghasilkan estimasi
+    
     est_cols = [f"Estimated_SAP_{m}" for m in MODELS]
     kriging_export_inside_df = kriging_export_inside_df.dropna(
         subset=est_cols, how="all"
@@ -464,16 +464,16 @@ if EXPORT_KRIGING_EARLY:
 
     kriging_excel_path = os.path.join(
         OUTPUT_DIR,
-        "hasil_kriging_SAP_XY_2model.xlsx"
+        "kriging_saprolite_XY_2models.xlsx"
     )
 
     with pd.ExcelWriter(kriging_excel_path, engine="openpyxl") as writer:
-        # Sheet utama: siap dipakai untuk perbandingan dengan surface bedrock
+        
         kriging_export_inside_df.to_excel(
             writer, sheet_name="Kriging_SAP", index=False
         )
 
-        # Masing-masing model dibuat juga pada sheet terpisah agar lebih praktis
+        
         for m in MODELS:
             tmp = kriging_export_inside_df[[
                 "X", "Y", f"Estimated_SAP_{m}"
@@ -484,11 +484,11 @@ if EXPORT_KRIGING_EARLY:
             )
 
     print("=" * 70)
-    print("EXCEL HASIL ESTIMASI KRIGING SAP BERHASIL DIBUAT")
+    print("SAPROLITE KRIGING ESTIMATE WORKBOOK CREATED")
     print("=" * 70)
     print(f"File : {os.path.abspath(kriging_excel_path)}")
-    print(f"Jumlah grid di dalam boundary : {len(kriging_export_inside_df)}")
-    print("Kolom utama:")
+    print(f"Number of grid nodes inside boundary : {len(kriging_export_inside_df)}")
+    print("Main columns:")
     print("  X")
     print("  Y")
     for m in MODELS:
@@ -497,8 +497,8 @@ if EXPORT_KRIGING_EARLY:
 
     if STOP_AFTER_KRIGING_EXPORT:
         print("STOP_AFTER_KRIGING_EXPORT = True")
-        print("Program dihentikan setelah Excel estimasi dibuat.")
-        print("Ubah menjadi False jika ingin melanjutkan statistik, peta, dan LOOCV.")
+        print("Program stopped after the kriging-estimate workbook was created.")
+        print("Set STOP_AFTER_KRIGING_EXPORT=False to continue with statistics, maps, and LOOCV.")
         raise SystemExit
 
 # ============================================================
@@ -519,7 +519,7 @@ global_stats_df=pd.DataFrame(rows)[["Model","N","Min","Max","Mean","Median","Std
 print("="*70,"\nSTATISTIK GLOBAL\n"+"="*70,sep=""); print(global_stats_df.round(4).to_string(index=False))
 
 # ============================================================
-# 12. STYLE PETA SESUAI SCRIPT CONTOH
+
 # ============================================================
 cmap_smooth=LinearSegmentedColormap.from_list("smooth_blue_red",
     ["#0b3c8c","#2c7fb8","#41b6c4","#a1dab4","#ffffbf","#fdae61","#d7191c"],N=256)
@@ -542,37 +542,37 @@ def map_panel(ax,model,vmin,vmax,point_size=20,boundary_label=None):
     return cf
 
 # ============================================================
-# 13. PETA KONTUR MASING-MASING MODEL
+
 # ============================================================
 allvals=np.concatenate([grid_estimates[m].ravel() for m in MODELS]); allvals=allvals[np.isfinite(allvals)]
 for m in MODELS:
     Z=grid_estimates[m]; vmin,vmax=(np.nanmin(Z),np.nanmax(Z)) if COLOR_SCALE_SINGLE=="local" else (allvals.min(),allvals.max())
     fig,ax=plt.subplots(figsize=(10,8),constrained_layout=True)
-    cf=map_panel(ax,m,vmin,vmax,POINT_SIZE_SINGLE,f"Boundary estimasi (±{BOUNDARY_OFFSET:.0f} m)")
-    fig.colorbar(cf,ax=ax,label="Estimated Ketebalan SAP"); ax.set_title(f"{m} - Estimasi Ketebalan SAP",fontweight="bold"); ax.legend(fontsize=8)
+    cf=map_panel(ax,m,vmin,vmax,POINT_SIZE_SINGLE,f"Estimation boundary (±{BOUNDARY_OFFSET:.0f} m)")
+    fig.colorbar(cf,ax=ax,label="Estimated Saprolite Thickness"); ax.set_title(f"{m} - Estimasi Saprolite Thickness",fontweight="bold"); ax.legend(fontsize=8)
     if SAVE_FIGS: fig.savefig(os.path.join(OUTPUT_DIR,f"map_estimation_{m}.png"),dpi=300,bbox_inches="tight")
     plt.show()
 
 # ============================================================
-# 14. PETA PERBANDINGAN 2 MODEL
+
 # ============================================================
 vminG,vmaxG=allvals.min(),allvals.max(); fig,axes=plt.subplots(1,2,figsize=(14,6),constrained_layout=True)
 for ax,m in zip(axes,MODELS):
     Z=grid_estimates[m]; vmin,vmax=(np.nanmin(Z),np.nanmax(Z)) if COLOR_SCALE_COMPARE=="local" else (vminG,vmaxG)
     cf=map_panel(ax,m,vmin,vmax,POINT_SIZE_COMPARE); ax.set_title(f"Model {m}",fontweight="bold")
-fig.colorbar(cf,ax=axes.ravel().tolist(),label="Estimated Ketebalan SAP")
+fig.colorbar(cf,ax=axes.ravel().tolist(),label="Estimated Saprolite Thickness")
 if SAVE_FIGS: fig.savefig(os.path.join(OUTPUT_DIR,"map_comparison_2_models.png"),dpi=300,bbox_inches="tight")
 plt.show()
 
 # ============================================================
-# 15. HISTOGRAM HASIL ESTIMASI
+
 # ============================================================
 fig,axes=plt.subplots(1,2,figsize=(12,5),constrained_layout=True)
 for ax,m in zip(axes,MODELS):
     v=grid_estimates[m].ravel(); v=v[np.isfinite(v)]
     ax.hist(v,bins=20,edgecolor="k",alpha=.85); ax.axvline(v.mean(),ls="--",lw=2,label=f"Mean = {v.mean():.2f}")
-    ax.axvline(np.median(v),lw=2,label=f"Median = {np.median(v):.2f}"); ax.set(title=f"Histogram Hasil Estimasi\nModel {m}",xlabel="Ketebalan SAP",ylabel="Frekuensi"); ax.grid(alpha=.25); ax.legend(fontsize=8)
-if SAVE_FIGS: fig.savefig(os.path.join(OUTPUT_DIR,"histogram_estimasi_2_model.png"),dpi=300,bbox_inches="tight")
+    ax.axvline(np.median(v),lw=2,label=f"Median = {np.median(v):.2f}"); ax.set(title=f"Histogram of Estimates\nModel {m}",xlabel="Saprolite Thickness",ylabel="Frequency"); ax.grid(alpha=.25); ax.legend(fontsize=8)
+if SAVE_FIGS: fig.savefig(os.path.join(OUTPUT_DIR,"histogram_estimates_2_models.png"),dpi=300,bbox_inches="tight")
 plt.show()
 
 # ============================================================
@@ -586,7 +586,7 @@ def r2_manual(y,p):
 def leave_one_out_cv():
     rows=[]; n=len(data)
     for i in range(n):
-        if (i+1)%25==0: print(f"Cross validation titik {i+1}/{n}")
+        if (i+1)%25==0: print(f"Cross-validation point {i+1}/{n}")
         mask=np.ones(n,bool); mask[i]=False
         row=dict(Index=i,X=x_data[i],Y=y_data[i],Z_actual=z_data[i])
         for m in MODELS:
@@ -597,10 +597,10 @@ def leave_one_out_cv():
     return pd.DataFrame(rows)
 
 print("="*70,"\nMULAI LEAVE-ONE-OUT CROSS VALIDATION\n"+"="*70,sep="")
-cv_df=leave_one_out_cv(); print("Cross validation selesai.\n")
+cv_df=leave_one_out_cv(); print("Cross-validation completed.\n")
 
 # ============================================================
-# 17. RINGKASAN CROSS VALIDATION
+# 17. CROSS-VALIDATION SUMMARY
 # ============================================================
 rows=[]
 for m in MODELS:
@@ -609,7 +609,7 @@ for m in MODELS:
                      R2=r2_manual(a,p),Std_Error=e.std(ddof=1),Min_Error=e.min(),Max_Error=e.max(),
                      Mean_Negative_Weights=cv_df.loc[valid,f"N_negative_weights_{m}"].mean()))
 cv_summary_df=pd.DataFrame(rows)
-print("="*70,"\nRINGKASAN CROSS VALIDATION\n"+"="*70,sep=""); print(cv_summary_df.round(4).to_string(index=False))
+print("="*70,"\nCROSS-VALIDATION SUMMARY\n"+"="*70,sep=""); print(cv_summary_df.round(4).to_string(index=False))
 
 # ============================================================
 # 18. SCATTER ACTUAL VS PREDICTED + REGRESSION LINE
@@ -639,7 +639,7 @@ plt.show()
 fig,axes=plt.subplots(1,2,figsize=(12,5),constrained_layout=True)
 for ax,m in zip(axes,MODELS):
     e=cv_df[f"Error_{m}"].dropna().values; ax.hist(e,bins=20,edgecolor="k",alpha=.85); ax.axvline(0,lw=2,label="Error = 0"); ax.axvline(e.mean(),ls="--",lw=2,label=f"ME = {e.mean():.2f}")
-    ax.set(title=f"Histogram Error CV\nModel {m}",xlabel="Error prediksi",ylabel="Frekuensi"); ax.grid(alpha=.25); ax.legend(fontsize=8)
+    ax.set(title=f"Cross-validation Error Histogram\nModel {m}",xlabel="Prediction error",ylabel="Frequency"); ax.grid(alpha=.25); ax.legend(fontsize=8)
 if SAVE_FIGS: fig.savefig(os.path.join(OUTPUT_DIR,"histogram_error_cv_2_model.png"),dpi=300,bbox_inches="tight")
 plt.show()
 
@@ -648,7 +648,7 @@ plt.show()
 # ============================================================
 fig,axes=plt.subplots(1,3,figsize=(18,5),constrained_layout=True)
 for ax,metric in zip(axes,["RMSE","MAE","ME"]):
-    vals=cv_summary_df[metric]; ax.bar(cv_summary_df.Model,vals,edgecolor="k",alpha=.85); ax.set(title=f"Perbandingan {metric} Cross Validation",ylabel=metric); ax.grid(axis="y",alpha=.25)
+    vals=cv_summary_df[metric]; ax.bar(cv_summary_df.Model,vals,edgecolor="k",alpha=.85); ax.set(title=f"Cross-validation comparison: {metric}",ylabel=metric); ax.grid(axis="y",alpha=.25)
     for i,v in enumerate(vals): ax.text(i,v,f"{v:.2f}",ha="center",va="bottom")
 if SAVE_FIGS: fig.savefig(os.path.join(OUTPUT_DIR,"bar_metric_cv_2_model.png"),dpi=300,bbox_inches="tight")
 plt.show()
@@ -672,14 +672,14 @@ def boundary_vertices_dataframe(g):
     return pd.DataFrame(rows)
 
 boundary_vertices_df=boundary_vertices_dataframe(estimation_boundary)
-print("="*70,"\nVARIABEL OUTPUT DI PYTHON\n"+"="*70,sep="")
+print("="*70,"\nPYTHON OUTPUT VARIABLES\n"+"="*70,sep="")
 print("1. global_stats_df\n2. cv_summary_df\n3. cv_df\n4. grid_result_df\n5. grid_estimates\n6. grid_variances_raw\n7. grid_nnegative_weights\n8. neighborhood_diagnostic_output\n9. estimation_boundary\n10. boundary_vertices_df\n11. parameter_model_df")
 
 # ============================================================
-# 22. EXPORT EXCEL KE FOLDER OUTPUT
+
 # ============================================================
 if EXPORT_EXCEL:
-    excel_path = os.path.join(OUTPUT_DIR, "hasil_estimasi_SAP_2model_boundary25_search400_circle.xlsx")
+    excel_path = os.path.join(OUTPUT_DIR, "saprolite_estimates_2models_boundary25_search400_circle.xlsx")
     with pd.ExcelWriter(excel_path) as writer:
         parameter_model_df.to_excel(writer,sheet_name="model_parameters",index=False)
         global_stats_df.to_excel(writer,sheet_name="global_stats",index=False)
@@ -690,6 +690,6 @@ if EXPORT_EXCEL:
 
 
 print("\n" + "="*70)
-print("OUTPUT SELESAI")
+print("OUTPUT COMPLETE")
 print("="*70)
-print(f"Semua file hasil disimpan di folder:\n{os.path.abspath(OUTPUT_DIR)}")
+print(f"All output files were saved in:\n{os.path.abspath(OUTPUT_DIR)}")

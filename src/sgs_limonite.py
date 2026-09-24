@@ -1,49 +1,49 @@
 
-# SEQUENTIAL GAUSSIAN SIMULATION (SGS) OF LIMONITE THICKNESS
+
 # COMPARISON OF ELLIPSE VS CASSINI OVAL
 # ============================================================
 #
 # Input:
-#   Ketebalan.xlsx
-#   Kolom variabel: "Ketebalan LIM"
-#   Kolom koordinat X/Y dideteksi otomatis (X/Easting dan Y/Northing).
+#   Thickness.xlsx
+
+#   X/Y coordinate columns are detected automatically (X/Easting and Y/Northing).
 #
 # Konsep:
-#   1. Normal-score transform Ketebalan LIM.
-#   2. SGS pada ruang Gaussian menggunakan Simple Kriging (mean = 0).
-#   3. Dua model memakai parameter variogram radial yang SAMA:
+
+
+
 #        nugget = 0.06
 #        partial sill = 0.94
 #        total sill = 1.00
 #        model = spherical
-#   4. Yang dibedakan adalah geometri directional range:
-#        - Elips
+#   4. The compared component is the directional-range geometry:
+#        - Ellipse
 #        - Oval Cassini affine-scaled
-#   5. 100 realisasi menggunakan paired random path dan paired Gaussian
+
 #      innovations to support a paired comparison of both geometries.
-#   6. Back-transform hasil SGS ke satuan ketebalan asli.
-#   7. Menyimpan 100 realisasi ke ROOT OUTPUT BARU dan subfolder terpisah.
-#      CSV disimpan segera setiap realisasi selesai; peta dipisahkan per model.
+
+
+
 #
-# Grid / neighborhood:
-#   GRID_RES = 12.5 m
-#   boundary ortogonal rapi mengikuti sebaran titik bor
-#   buffer luar = 1 x spasi titik bor = 25 m
-#   lubang internal boundary diisi
-#   boundary memakai raster ortogonal 25 m agar rapi seperti batas IUP
+
+
+
+
+
+
 #   NMIN = 6
 #   NMAX = 12
-#   NORMALIZED_SEARCH_RADIUS = 1.25
+
 #
 # Dependensi Anaconda:
 #   numpy, pandas, scipy, matplotlib, openpyxl
 #
 # Catatan metodologi:
-#   - SGS menggunakan Simple Kriging karena variabel telah ditransformasikan
-#     ke normal score dengan mean teoritis 0 dan sill 1.
-#   - Cassini memakai directional range yang sama dengan formulasi pada
-#     script estimasi. Karena geometri Cassini bukan anisotropi Euclidean
-#     standar, script melakukan stabilisasi numerik lokal bila matriks
+
+
+
+
+
 #     covariance memerlukan jitter.
 # ============================================================
 
@@ -57,7 +57,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import matplotlib
-matplotlib.use("Agg")  # lebih stabil untuk menyimpan ratusan peta tanpa membuka GUI
+matplotlib.use("Agg")  
 import matplotlib.pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap
 from matplotlib.collections import LineCollection
@@ -89,7 +89,7 @@ REPO_ROOT = resolve_repo_root()
 
 
 # ============================================================
-# 1. PENGATURAN UTAMA
+
 # ============================================================
 
 DATA_FILE = str(REPO_ROOT / "example" / "synthetic_thickness.xlsx")
@@ -97,31 +97,31 @@ SHEET_NAME = 0
 
 X_COL = None
 Y_COL = None
-Z_COL = "Ketebalan LIM"
+Z_COL = "Limonite Thickness"
 
-# Grid simulasi mengikuti bentuk sebaran data.
+
 GRID_RES = 12.5
 
-# Jika None, spasi bor dihitung otomatis sebagai median nearest-neighbor.
-# Jika ingin dipaksa tepat 25 m, ubah menjadi: DRILL_SPACING_OVERRIDE = 25.0
+
+
 DRILL_SPACING_OVERRIDE = 25.0
 
-# Boundary akhir diperluas 1 x spasi titik bor terluar.
+
 BOUNDARY_BUFFER_MULTIPLIER = 1.0
 
-# Boundary ortogonal seperti batas IUP
+
 BOUNDARY_CELL = 25.0
 BOUNDARY_CLOSE_ITERS = 1
 FILL_INTERNAL_BOUNDARY_HOLES = True
 MASK_OUTSIDE_DATA_SHAPE = True
 
-# Neighborhood sama dengan script estimasi
+
 NMIN = 6
 NMAX = 12
 ALLOW_FALLBACK_NEAREST = True
 NORMALIZED_SEARCH_RADIUS = 1.25
 
-# Variogram NORMAL SCORE - sama untuk Elips dan Cassini
+
 VARIOGRAM_MODEL = "spherical"
 NUGGET = 0.06
 PARTIAL_SILL = 0.94
@@ -131,13 +131,13 @@ SILL = NUGGET + PARTIAL_SILL
 N_REALIZATIONS = 100
 BASE_SEED = 260815
 
-# Banyak kandidat terdekat yang diprekomputasi untuk mempercepat SGS.
-# Nilai ini BUKAN jumlah neighbor kriging. Neighbor kriging tetap NMAX=12.
+
+
 HARD_CANDIDATE_K = 48
 GRID_CANDIDATE_K = 128
 
-# Titik grid dianggap berimpit dengan hard data hanya bila jaraknya
-# sangat kecil. Jika berimpit, normal-score hard data dihonor persis.
+
+
 HARD_MATCH_TOL = max(1e-8, GRID_RES * 1e-7)
 
 # Stabilisasi numerik covariance lokal
@@ -147,60 +147,60 @@ VAR_MIN = 1e-10
 VAR_MAX = SILL
 
 # Back-transform tails:
-# "clip" = nilai simulasi di luar rentang normal-score data dipotong
-#          ke min/max ketebalan data. Stabil dan aman untuk ketebalan.
+
+
 BACKTRANSFORM_TAIL = "clip"
 
 # ============================================================
-# OUTPUT BARU - DIPISAH DARI RUN SEBELUMNYA
+
 # ============================================================
-# Folder root sengaja berbeda agar hasil run LIM sebelumnya
-# tidak tercampur/tertimpa. Di dalamnya output dipisahkan per jenis.
+
+
 OUTPUT_DIR = REPO_ROOT / "outputs" / "sgs_limonite"
 
-DIR_REALIZATION_CSV = OUTPUT_DIR / "01_realisasi_csv"
-DIR_INDIVIDUAL_MAPS = OUTPUT_DIR / "02_peta_individual"
-DIR_COMPARE_MAPS = OUTPUT_DIR / "03_peta_perbandingan"
-DIR_SUMMARY = OUTPUT_DIR / "04_ringkasan_spasial"
-DIR_ENSEMBLE = OUTPUT_DIR / "05_diagnostik_ensemble"
-DIR_TABLES = OUTPUT_DIR / "06_tabel_diagnostik"
+DIR_REALIZATION_CSV = OUTPUT_DIR / "01_realization_csv"
+DIR_INDIVIDUAL_MAPS = OUTPUT_DIR / "02_map_individual"
+DIR_COMPARE_MAPS = OUTPUT_DIR / "03_comparison_maps"
+DIR_SUMMARY = OUTPUT_DIR / "04_spatial_summary"
+DIR_ENSEMBLE = OUTPUT_DIR / "05_ensemble_diagnostics"
+DIR_TABLES = OUTPUT_DIR / "06_diagnostic_tables"
 DIR_ARRAYS = OUTPUT_DIR / "07_array_npy"
 
 SAVE_ALL_REALIZATIONS = True
 SAVE_EACH_REALIZATION_CSV = True
-SAVE_INDIVIDUAL_REALIZATION_MAPS = True   # 100 Elips + 100 Cassini
-SAVE_PAIRED_REALIZATION_MAPS = True       # 100 peta perbandingan 2 model (paired)
+SAVE_INDIVIDUAL_REALIZATION_MAPS = True   # 100 Ellipse + 100 Cassini
+SAVE_PAIRED_REALIZATION_MAPS = True       
 SAVE_POSTPROCESS_CSV = True
 SAVE_FIGS = True
 
-# Jika proses ekspor gambar terputus, jalankan ulang script yang sama.
-# File peta yang sudah ada akan dilewati dan ekspor melanjutkan file yang belum ada.
+
+
 SKIP_EXISTING_EXPORTS = True
 
-# CSV realisasi disimpan SEGERA setelah setiap realisasi SGS selesai, bukan menunggu
-# seluruh peta selesai diekspor. Ini membuat R001-R100 lebih aman terhadap interupsi.
+
+
 SAVE_REALIZATION_CSV_DURING_SIMULATION = True
 
-# Jangan tampilkan ratusan jendela saat dijalankan dari Anaconda/Jupyter.
+# Jangan tampilkan ratusan jendela saat dijalankan of Anaconda/Jupyter.
 SHOW_PLOTS = False
 RUN_LOOCV = True
 
-# Contoh realisasi untuk plot ringkasan tambahan (1-based)
+
 EXAMPLE_REALIZATION = 1
 
-# Style peta mengikuti script estimasi yang diberikan pengguna.
+
 N_LEVELS_MAP = 30
 POINT_SIZE_SINGLE = 24
 POINT_SIZE_COMPARE = 18
-COLOR_SCALE_SINGLE = "global"   # semua peta ketebalan memakai skala global yang sama
+COLOR_SCALE_SINGLE = "global"   
 COLOR_SCALE_COMPARE = "global"  # paired comparison memakai skala warna sama
 MAP_DPI = 300
 
-# Ringkasan ensemble 100 realisasi menjadi satu gambar per jenis diagnostik.
-# Histogram dan CDF memakai seluruh nilai dari seluruh realisasi.
-# Uncertainty plot memakai distribusi 100 nilai pada setiap node grid.
-# Variogram ensemble dihitung di ruang normal-score agar dapat dibandingkan
-# langsung dengan variogram target SGS (nugget=0.06, partial sill=0.94).
+
+
+
+
+
 RUN_ENSEMBLE_DIAGNOSTICS = True
 HISTOGRAM_BINS = 55
 CDF_BINS = 500
@@ -212,23 +212,23 @@ VARIOGRAM_LOCAL_ANCHORS = 1000
 VARIOGRAM_LOCAL_K = 100
 VARIOGRAM_GLOBAL_PAIR_FACTOR = 4
 
-# Validasi variogram directional 8 arah.
+
 RUN_DIRECTIONAL_VARIOGRAM_VALIDATION = True
-DIRECTIONAL_TOLERANCE_DEG = 11.25   # +/- 11.25 derajat untuk arah berjarak 22.5 derajat
+DIRECTIONAL_TOLERANCE_DEG = 11.25   
 DIRECTIONAL_RANGE_FIT_MIN = max(GRID_RES * 1.5, 20.0)
 DIRECTIONAL_RANGE_FIT_MAX_FACTOR = 2.0
 DIRECTIONAL_MIN_PAIRS_PER_BIN = 20
 
-MODELS = ["Elips", "Cassini"]
+MODELS = ["Ellipse", "Cassini"]
 EPS = 1e-12
 
 
 def prepare_output_folders():
-    """Buat struktur folder output baru dan terpisah."""
+    """Create the output-folder structure."""
     folders = [
         OUTPUT_DIR,
         DIR_REALIZATION_CSV,
-        DIR_INDIVIDUAL_MAPS / "Elips",
+        DIR_INDIVIDUAL_MAPS / "Ellipse",
         DIR_INDIVIDUAL_MAPS / "Cassini",
         DIR_COMPARE_MAPS,
         DIR_SUMMARY,
@@ -241,7 +241,7 @@ def prepare_output_folders():
 
 
 def output_file(path_like):
-    """Kembalikan Path output dan pastikan parent folder tersedia."""
+    """Return an output Path and ensure that its parent directory exists."""
     p = Path(path_like)
     if not p.is_absolute():
         p = OUTPUT_DIR / p
@@ -250,11 +250,11 @@ def output_file(path_like):
 
 
 def should_export(path_like):
-    """False bila file sudah ada dan mode skip-existing aktif."""
+    """Return False when the file already exists and skip-existing mode is active."""
     p = output_file(path_like)
     return not (SKIP_EXISTING_EXPORTS and p.exists())
 
-# Colormap sama dengan script estimasi LIM yang diberikan.
+
 cmap_smooth = LinearSegmentedColormap.from_list(
     "smooth_blue_red",
     [
@@ -271,10 +271,10 @@ cmap_smooth = LinearSegmentedColormap.from_list(
 
 
 # ============================================================
-# 2. PARAMETER DIRECTIONAL RANGE LIM - HASIL FITTING NLS TERBARU
+
 # ============================================================
 
-# Elips polar NLS
+# Ellipse polar NLS
 ELLIPSE_MAJOR = 293.99632947
 ELLIPSE_MINOR = 163.69907027
 ELLIPSE_PHI_AZ = 74.63410107
@@ -282,27 +282,26 @@ ELLIPSE_RATIO = ELLIPSE_MAJOR / ELLIPSE_MINOR
 
 # Oval Cassini affine-scaled NLS
 CASSINI_A = 165.56486891
-CASSINI_C = 228.01740108
-CASSINI_SX = 1.01083953
-CASSINI_SY = 0.98927671
+CASSINI_B = 228.01740108
+_CASSINI_INTERNAL_SCALE_X = 1.01083953
+_CASSINI_INTERNAL_SCALE_Y = 0.98927671
 CASSINI_PHI_AZ = 73.97365979
-CASSINI_RATIO_CA = CASSINI_C / CASSINI_A
 
-# Statistik fitting directional range dari script fitting yang diberikan.
+# Directional-range fitting statistics from the corresponding NLS script.
 DIRECTIONAL_FIT_RMSE = {
-    "Elips": 7.74743814,
+    "Ellipse": 7.74743814,
     "Cassini": 4.52894832,
 }
 
 DIRECTIONAL_FIT_R2 = {
-    "Elips": 0.97240331,
+    "Ellipse": 0.97240331,
     "Cassini": 0.99056948,
 }
 
 
-# Delapan arah experimental directional variogram yang dipakai pada fitting NLS.
-# Azimuth geologi: 0°=North, 90°=East, clockwise.
-# Arah 180°-337.5° adalah pasangan berlawanan dan mempunyai range yang sama.
+
+
+
 DIRECTIONAL_VALIDATION_TABLE = pd.DataFrame({
     "Direction": ["N0E", "N22.5E", "N45E", "N67.5E", "N90E", "N112.5E", "N135E", "N157.5E"],
     "Azimuth_deg": [0.0, 22.5, 45.0, 67.5, 90.0, 112.5, 135.0, 157.5],
@@ -320,15 +319,15 @@ def find_excel_file(file_name):
     if os.path.exists(file_name):
         return file_name
 
-    candidates = glob.glob("*Ketebalan*.xlsx") + glob.glob("*Ketebalan*.xls")
+    candidates = glob.glob("*Thickness*.xlsx") + glob.glob("*Thickness*.xls")
 
     if len(candidates) > 0:
-        print(f"File {file_name} tidak ditemukan. Menggunakan: {candidates[0]}")
+        print(f"File {file_name} was not found. Using: {candidates[0]}")
         return candidates[0]
 
     raise FileNotFoundError(
-        "Ketebalan.xlsx tidak ditemukan. Letakkan file Excel di folder "
-        "yang sama dengan script, atau ubah DATA_FILE."
+        "Input workbook was not found. Letakkan file Excel di folder "
+        "as the script, or change DATA_FILE."
     )
 
 
@@ -361,15 +360,15 @@ def load_thickness_data():
         df, ["y", "northing", "north", "koordinat y", "y coordinate"]
     )
     z_col = Z_COL if Z_COL in df.columns else detect_column(
-        df, ["Ketebalan LIM", "ketebalan lim", "lim thickness", "ketebalan"]
+        df, ["Limonite Thickness", "limonite thickness", "lim thickness", "thickness"]
     )
 
     if x_col is None or y_col is None or z_col is None:
-        print("\nKolom yang tersedia:")
+        print("\nAvailable columns:")
         print(df.columns.tolist())
         raise ValueError(
-            "Kolom X, Y, atau Ketebalan LIM tidak terdeteksi. "
-            "Isi X_COL, Y_COL, dan Z_COL secara manual."
+            "X, Y, or Limonite Thickness column could not be detected. "
+            "Set X_COL, Y_COL, and Z_COL manually."
         )
 
     data = df[[x_col, y_col, z_col]].copy()
@@ -380,40 +379,40 @@ def load_thickness_data():
 
     if len(data) < NMIN + 1:
         raise ValueError(
-            f"Jumlah data valid hanya {len(data)}. "
-            f"Minimal disarankan lebih dari NMIN={NMIN}."
+            f"Only {len(data)} valid data records were found. "
+            f"More than NMIN={NMIN} records are recommended."
         )
 
-    # Gabungkan koordinat duplikat dengan mean ketebalan agar covariance
-    # tidak singular akibat hard data pada posisi yang persis sama.
+    
+    
     n_before = len(data)
     data = data.groupby(["X", "Y"], as_index=False)["Z"].mean()
     n_after = len(data)
 
     if n_after < n_before:
         print(
-            f"Peringatan: {n_before - n_after} data koordinat duplikat "
-            "digabung menggunakan mean Ketebalan LIM."
+            f"Warning: {n_before - n_after} duplicate-coordinate records "
+            "were merged using the mean Limonite Thickness."
         )
 
     print("\n" + "=" * 72)
     print("DATA LIM")
     print("=" * 72)
     print(f"File                = {file_path}")
-    print(f"Kolom X             = {x_col}")
-    print(f"Kolom Y             = {y_col}")
-    print(f"Kolom simulasi      = {z_col}")
-    print(f"Jumlah hard data    = {len(data)}")
-    print(f"Min Ketebalan LIM   = {data['Z'].min():.4f}")
-    print(f"Max Ketebalan LIM   = {data['Z'].max():.4f}")
-    print(f"Mean Ketebalan LIM  = {data['Z'].mean():.4f}")
-    print(f"Std Ketebalan LIM   = {data['Z'].std(ddof=1):.4f}")
+    print(f"X column            = {x_col}")
+    print(f"Y column            = {y_col}")
+    print(f"Simulation column    = {z_col}")
+    print(f"Number of hard data    = {len(data)}")
+    print(f"Min Limonite Thickness   = {data['Z'].min():.4f}")
+    print(f"Max Limonite Thickness   = {data['Z'].max():.4f}")
+    print(f"Mean Limonite Thickness  = {data['Z'].mean():.4f}")
+    print(f"SD Limonite Thickness   = {data['Z'].std(ddof=1):.4f}")
 
     return data
 
 
 # ============================================================
-# 4. NORMAL-SCORE TRANSFORMATION
+
 # ============================================================
 
 def normal_score_transform(z):
@@ -429,7 +428,7 @@ def normal_score_transform(z):
     probs = np.clip(probs, 1e-10, 1.0 - 1e-10)
     y = norm.ppf(probs)
 
-    # Tabel back-transform dibuat dari ordered sample dengan plotting position
+    
     order = np.argsort(z)
     z_sorted = z[order]
     p_sorted = (np.arange(n) + 0.5) / n
@@ -439,7 +438,7 @@ def normal_score_transform(z):
 
 
 def back_transform(y_values, y_table, z_table, tail_mode="clip"):
-    """Back-transform normal score ke unit ketebalan asli."""
+    """Back-transform normal scores to the original thickness units."""
     y_values = np.asarray(y_values, dtype=float)
 
     if tail_mode == "clip":
@@ -451,16 +450,16 @@ def back_transform(y_values, y_table, z_table, tail_mode="clip"):
             right=z_table[-1],
         )
 
-    raise ValueError("BACKTRANSFORM_TAIL saat ini harus 'clip'.")
+    raise ValueError("BACKTRANSFORM_TAIL must currently be set to 'clip'.")
 
 
 # ============================================================
-# 5. FUNGSI AZIMUTH DAN DIRECTIONAL RANGE
+
 # ============================================================
 
 def azimuth_to_unit_vector(az_deg):
     """
-    Azimuth geologi:
+    Geological azimuth:
       0° = North
       90° = East
       clockwise
@@ -503,10 +502,9 @@ def ellipse_range_from_azimuth(az_deg):
 
 def cassini_range_from_azimuth(az_deg):
     """
-    Directional range dari affine-scaled Cassinian oval.
+    Directional range of affine-scaled Cassinian oval.
 
-    [(X/sx)^2 + (Y/sy)^2 + a^2]^2
-      - 4 a^2 (X/sx)^2 - c^4 = 0
+    [X_n^2 + Y_n^2 + a^2]^2 - 4 a^2 X_n^2 - b^4 = 0
     """
     az_deg = np.asarray(az_deg, dtype=float)
 
@@ -519,14 +517,14 @@ def cassini_range_from_azimuth(az_deg):
     local_x = ux * ct + uy * st
     local_y = -ux * st + uy * ct
 
-    A = local_x / CASSINI_SX
-    B = local_y / CASSINI_SY
+    A = local_x / _CASSINI_INTERNAL_SCALE_X
+    B = local_y / _CASSINI_INTERNAL_SCALE_Y
 
     sdir = A**2 + B**2
 
     qa = sdir**2
     qb = CASSINI_A**2 * (2.0 * sdir - 4.0 * A**2)
-    qc = CASSINI_A**4 - CASSINI_C**4
+    qc = CASSINI_A**4 - CASSINI_B**4
 
     disc = qb**2 - 4.0 * qa * qc
     disc = np.where((disc < 0.0) & (disc > -1e-8), 0.0, disc)
@@ -556,11 +554,11 @@ def cassini_range_from_azimuth(az_deg):
 
 
 def get_directional_range(az_deg, model_name):
-    if model_name == "Elips":
+    if model_name == "Ellipse":
         return ellipse_range_from_azimuth(az_deg)
     if model_name == "Cassini":
         return cassini_range_from_azimuth(az_deg)
-    raise ValueError("Nama model tidak dikenal.")
+    raise ValueError("Unknown model name.")
 
 
 def normalized_distance_from_dxdy(dx, dy, model_name):
@@ -578,7 +576,7 @@ def normalized_distance_from_dxdy(dx, dy, model_name):
 
 
 # ============================================================
-# 6. VARIOGRAM DAN COVARIANCE NORMAL SCORE
+
 # ============================================================
 
 def spherical_core(t):
@@ -608,7 +606,7 @@ def semivariogram_from_dxdy(dx, dy, model_name):
 
 def covariance_from_dxdy(dx, dy, model_name):
     """
-    C(h) = sill - gamma(h), dengan C(0) = sill.
+    C(h) = sill - gamma(h), with C(0) = sill.
     """
     gamma = semivariogram_from_dxdy(dx, dy, model_name)
     cov = SILL - gamma
@@ -616,11 +614,11 @@ def covariance_from_dxdy(dx, dy, model_name):
 
 
 # ============================================================
-# 7. GRID SIMULASI - BOUNDARY ORTOGONAL RAPI 25 m
+
 # ============================================================
 
 class OrthogonalBoundary:
-    """Boundary ortogonal tanpa Shapely."""
+    """Construct an orthogonal boundary without Shapely."""
     def __init__(self, x_edges, y_edges, mask):
         self.x_edges = np.asarray(x_edges, dtype=float)
         self.y_edges = np.asarray(y_edges, dtype=float)
@@ -652,7 +650,7 @@ class OrthogonalBoundary:
 
 
 def estimate_drill_spacing(coords):
-    """Estimasi spasi bor tipikal dari median nearest-neighbor distance."""
+    """Estimate typical drill spacing from the median nearest-neighbor distance."""
     coords = np.asarray(coords, dtype=float)
     if len(coords) < 2:
         return float(GRID_RES)
@@ -665,9 +663,9 @@ def estimate_drill_spacing(coords):
 
 def build_orthogonal_boundary(coords, offset, cell=BOUNDARY_CELL):
     """
-    Boundary dibentuk dari union kotak +/- offset di sekitar titik bor.
-    Raster boundary dibuat reguler 25 m, kemudian closing dan fill-holes
-    sehingga garis batas horizontal/vertikal, lebih rapi, dan tidak bolong.
+    Boundary formed from the union of boxes with +/- offset around drillholes.
+    The boundary raster uses a regular 25 m cell size followed by closing and hole filling
+    to obtain a clean horizontal/vertical boundary without internal holes.
     """
     coords = np.asarray(coords, dtype=float)
     minx = np.floor((coords[:, 0].min() - offset) / cell) * cell
@@ -687,7 +685,7 @@ def build_orthogonal_boundary(coords, offset, cell=BOUNDARY_CELL):
         iy1 = min(ny, np.searchsorted(y_edges, y + offset, side="left"))
         mask[iy0:iy1, ix0:ix1] = True
 
-    # Padding menjaga outer boundary tidak terkikis oleh closing.
+    
     if BOUNDARY_CLOSE_ITERS > 0:
         p = BOUNDARY_CLOSE_ITERS + 1
         padded = np.pad(mask, p, mode="constant", constant_values=False)
@@ -705,7 +703,7 @@ def build_orthogonal_boundary(coords, offset, cell=BOUNDARY_CELL):
 
 
 def points_inside_boundary(boundary, xy):
-    """Uji titik terhadap sel boundary; titik tepat di garis tetap diterima."""
+    """Test points against boundary cells; points exactly on an edge are retained."""
     xy = np.asarray(xy, dtype=float)
     x, y = xy[:, 0], xy[:, 1]
     ix_a = np.searchsorted(boundary.x_edges, x, side="right") - 1
@@ -724,7 +722,7 @@ def points_inside_boundary(boundary, xy):
 
 
 def build_grid(data):
-    """Grid SGS 12.5 m di dalam boundary ortogonal 25 m tanpa lubang."""
+    """Create a 12.5 m SGS grid inside the 25 m orthogonal boundary without internal holes."""
     coords = data[["X", "Y"]].to_numpy(dtype=float)
     spacing_auto = estimate_drill_spacing(coords)
     drill_spacing = (
@@ -759,21 +757,21 @@ def build_grid(data):
     valid_flat_idx = np.where(inside_mask)[0]
     valid_points = grid_points[valid_flat_idx]
     if len(valid_points) == 0:
-        raise ValueError("Boundary menghasilkan 0 node simulasi.")
+        raise ValueError("The boundary produced zero simulation nodes.")
 
     print("\n" + "=" * 72)
     print("GRID SGS - BOUNDARY ORTOGONAL RAPI")
     print("=" * 72)
     print(f"GRID_RES                  = {GRID_RES:.3f} m")
-    print(f"Spasi bor auto (median NN)= {spacing_auto:.3f} m")
-    print(f"Spasi bor dipakai         = {drill_spacing:.3f} m")
+    print(f"Automatic drill spacing (median NN)= {spacing_auto:.3f} m")
+    print(f"Drill spacing used         = {drill_spacing:.3f} m")
     print(f"Buffer boundary           = {boundary_buffer:.3f} m")
     print(f"Boundary cell             = {BOUNDARY_CELL:.3f} m")
     print(f"Boundary closing iter     = {BOUNDARY_CLOSE_ITERS}")
     print(f"Fill internal holes       = {FILL_INTERNAL_BOUNDARY_HOLES}")
     print(f"Luas boundary             = {boundary.area:.2f} m2")
-    print(f"Jumlah grid rectangle     = {len(grid_points)}")
-    print(f"Grid disimulasikan        = {len(valid_points)}")
+    print(f"Number of rectangular grid nodes     = {len(grid_points)}")
+    print(f"Simulated grid nodes        = {len(valid_points)}")
 
     return {
         "x_grid": x_grid,
@@ -793,7 +791,7 @@ def build_grid(data):
 
 
 def plot_orthogonal_boundary(ax, grid_info, label="Boundary SGS (+/-25 m)", linewidth=1.6):
-    """Tambahkan garis boundary ortogonal pada peta."""
+    """Add the orthogonal boundary outline to a map."""
     boundary = grid_info.get("boundary")
     if boundary is None or not boundary.segments:
         return
@@ -808,7 +806,7 @@ def plot_orthogonal_boundary(ax, grid_info, label="Boundary SGS (+/-25 m)", line
 
 
 # ============================================================
-# 8. PRECOMPUTE KANDIDAT NEIGHBOR
+
 # ============================================================
 
 def ensure_2d_query_result(values, n_rows):
@@ -823,8 +821,8 @@ def ensure_2d_query_result(values, n_rows):
 
 def build_candidate_cache(valid_points, hard_coords, model_name):
     """
-    Mempercepat SGS dengan precompute kandidat hard data dan grid.
-    Urutan akhir kandidat ditentukan oleh normalized anisotropic distance.
+    Speed up SGS by precomputing candidate hard-data and grid neighbors.
+    Candidate ordering is determined by normalized anisotropic distance.
     """
     n_grid = len(valid_points)
     n_hard = len(hard_coords)
@@ -847,7 +845,7 @@ def build_candidate_cache(valid_points, hard_coords, model_name):
     hard_idx = np.take_along_axis(hard_idx, hard_order, axis=1)
     hard_dnorm = np.take_along_axis(hard_dnorm, hard_order, axis=1)
 
-    # ---------------- GRID NODES ----------------
+    
     grid_tree = cKDTree(valid_points)
 
     if n_grid > 1:
@@ -868,7 +866,7 @@ def build_candidate_cache(valid_points, hard_coords, model_name):
         grid_idx = np.take_along_axis(grid_idx, grid_order, axis=1)
         grid_dnorm = np.take_along_axis(grid_dnorm, grid_order, axis=1)
 
-        # Simpan hanya kandidat yang dibutuhkan setelah self diletakkan di akhir.
+        
         keep = min(GRID_CANDIDATE_K, grid_idx.shape[1])
         grid_idx = grid_idx[:, :keep]
         grid_dnorm = grid_dnorm[:, :keep]
@@ -876,7 +874,7 @@ def build_candidate_cache(valid_points, hard_coords, model_name):
         grid_idx = np.empty((1, 0), dtype=np.int32)
         grid_dnorm = np.empty((1, 0), dtype=float)
 
-    # Exact hard match untuk honoring data bila grid berimpit.
+    
     exact_dist, exact_idx = hard_tree.query(valid_points, k=1)
 
     print(f"  hard candidate K    = {hard_idx.shape[1]}")
@@ -908,9 +906,9 @@ def select_sgs_neighbors(
     """
     Menggabungkan:
       - hard data;
-      - grid node yang SUDAH disimulasikan pada random path.
+      - grid nodes already simulated along the random path.
 
-    Prioritas mengikuti normalized anisotropic distance.
+    Priority follows normalized anisotropic distance.
     """
     h_idx = cache["hard_idx"][local_grid_index]
     h_dn = cache["hard_dnorm"][local_grid_index].astype(float)
@@ -930,7 +928,7 @@ def select_sgs_neighbors(
         g_idx = np.empty(0, dtype=np.int32)
         g_dn = np.empty(0, dtype=float)
 
-    # Kode tipe: 0 = hard, 1 = simulated grid
+    
     cand_type = np.concatenate([
         np.zeros(len(h_idx), dtype=np.int8),
         np.ones(len(g_idx), dtype=np.int8),
@@ -990,7 +988,7 @@ def select_sgs_neighbors(
 
 
 # ============================================================
-# 10. SIMPLE KRIGING GAUSSIAN UNTUK SGS
+
 # ============================================================
 
 def simple_kriging_gaussian(target_xy, neighbor_coords, neighbor_values, model_name):
@@ -1019,7 +1017,7 @@ def simple_kriging_gaussian(target_xy, neighbor_coords, neighbor_values, model_n
     repaired = False
     solved = False
 
-    # Coba solve langsung, kemudian tambahkan jitter secara bertahap bila perlu.
+    # Attempt a direct solve, then add numerical jitter progressively if needed.
     trial_jitters = [0.0]
     j = COV_JITTER_START
     while j <= COV_JITTER_MAX:
@@ -1041,7 +1039,7 @@ def simple_kriging_gaussian(target_xy, neighbor_coords, neighbor_values, model_n
 
         cond_var_try = SILL - float(np.dot(weights_try, c0))
 
-        # Terima jika numerik masuk akal.
+        
         if np.isfinite(cond_var_try) and cond_var_try >= -1e-8:
             weights = weights_try
             cond_var = cond_var_try
@@ -1076,7 +1074,7 @@ def simple_kriging_gaussian(target_xy, neighbor_coords, neighbor_values, model_n
 
 
 # ============================================================
-# 11. SATU REALISASI SGS
+
 # ============================================================
 
 def simulate_one_realization(
@@ -1098,7 +1096,7 @@ def simulate_one_realization(
     n_exact_hard = 0
 
     for step, local_idx in enumerate(random_path):
-        # Honor hard data bila koordinat grid berimpit tepat.
+        
         if cache["exact_hard_dist"][local_idx] <= HARD_MATCH_TOL:
             hidx = cache["exact_hard_idx"][local_idx]
             sim_values[local_idx] = hard_gauss[hidx]
@@ -1150,7 +1148,7 @@ def simulate_one_realization(
 
 
 # ============================================================
-# 12. LOOCV DIAGNOSTIK MODEL (GAUSSIAN SIMPLE KRIGING)
+
 # ============================================================
 
 def loocv_model(hard_coords, hard_gauss, z_original, y_table, z_table, model_name):
@@ -1304,7 +1302,7 @@ def plot_single_sgs_map(
     global_vmin=None,
     global_vmax=None,
 ):
-    """Simpan satu peta SGS dengan style yang sama seperti script estimasi."""
+    """Save one SGS map using the same style as the estimation script."""
     XX = grid_info["XX"]
     YY = grid_info["YY"]
 
@@ -1344,17 +1342,17 @@ def plot_single_sgs_map(
         s=POINT_SIZE_SINGLE,
         vmin=vmin_map,
         vmax=vmax_map,
-        label="Data bor",
+        label="Drillhole data",
         zorder=5,
     )
 
     plot_orthogonal_boundary(ax, grid_info)
 
     cbar = fig.colorbar(cf, ax=ax)
-    cbar.set_label("SGS Ketebalan LIM")
+    cbar.set_label("SGS Limonite Thickness")
 
     ax.set_title(
-        f"{model_name} - SGS Ketebalan LIM - Realisasi {realization_number:03d}",
+        f"{model_name} - SGS Limonite Thickness - Realization {realization_number:03d}",
         fontsize=13,
         fontweight="bold",
     )
@@ -1383,7 +1381,7 @@ def plot_comparison_sgs_map(
     global_vmin,
     global_vmax,
 ):
-    """Peta paired realization dua model dengan skala warna yang sama."""
+    """Create a paired-realization map for both models using the same color scale."""
     XX = grid_info["XX"]
     YY = grid_info["YY"]
 
@@ -1426,7 +1424,7 @@ def plot_comparison_sgs_map(
         )
         plot_orthogonal_boundary(ax, grid_info, label=None, linewidth=1.25)
         ax.set_title(
-            f"Model {model_name} - Realisasi {realization_number:03d}",
+            f"Model {model_name} - Realization {realization_number:03d}",
             fontsize=11,
             fontweight="bold",
         )
@@ -1440,12 +1438,12 @@ def plot_comparison_sgs_map(
         fig.colorbar(
             cf,
             ax=axes.ravel().tolist(),
-            label="SGS Ketebalan LIM",
+            label="SGS Limonite Thickness",
             shrink=0.88,
         )
 
     fig.suptitle(
-        f"Perbandingan SGS Ketebalan LIM - Realisasi {realization_number:03d}",
+        f"SGS Comparison Limonite Thickness - Realization {realization_number:03d}",
         fontsize=13,
         fontweight="bold",
     )
@@ -1457,8 +1455,8 @@ def plot_comparison_sgs_map(
         plt.close(fig)
 
 
-def _plot_drill_locations(ax, hard_coords, label="Data bor"):
-    """Marker lokasi data bor yang konsisten untuk seluruh peta."""
+def _plot_drill_locations(ax, hard_coords, label="Drillhole data"):
+    """Use consistent drillhole-location markers on all maps."""
     ax.scatter(
         hard_coords[:, 0],
         hard_coords[:, 1],
@@ -1479,14 +1477,14 @@ def plot_model_maps(
     title_by_model,
     suptitle,
     file_name,
-    colorbar_label="Ketebalan LIM",
+    colorbar_label="Limonite Thickness",
     fixed_vmin=None,
     fixed_vmax=None,
 ):
-    """Perbandingan tiga peta dengan marker data bor pada seluruh panel.
+    """Compare three maps with drillhole markers on every panel.
 
-    Bila fixed_vmin/fixed_vmax diberikan, seluruh panel memakai rentang warna
-    yang persis sama. Ini dipakai untuk seluruh peta dalam satuan ketebalan.
+    When fixed_vmin/fixed_vmax are provided, all panels use the same color range
+    for direct comparison in thickness units.
     """
     XX = grid_info["XX"]
     YY = grid_info["YY"]
@@ -1541,10 +1539,10 @@ def plot_model_maps(
         plt.close(fig)
 
 def plot_etype_differences(etype_maps, grid_info, hard_coords, file_name):
-    """Difference map E-type Cassini - Elips."""
+    """Difference map E-type Cassini - Ellipse."""
     XX = grid_info["XX"]
     YY = grid_info["YY"]
-    diff_map = etype_maps["Cassini"] - etype_maps["Elips"]
+    diff_map = etype_maps["Cassini"] - etype_maps["Ellipse"]
     finite = diff_map[np.isfinite(diff_map)]
     if len(finite) == 0:
         return
@@ -1559,14 +1557,14 @@ def plot_etype_differences(etype_maps, grid_info, hard_coords, file_name):
     _plot_drill_locations(ax, hard_coords)
     plot_orthogonal_boundary(ax, grid_info, label=None, linewidth=1.25)
     ax.set_aspect("equal", adjustable="box")
-    ax.set_title("Cassini - Elips", fontweight="bold")
+    ax.set_title("Cassini - Ellipse", fontweight="bold")
     ax.set_xlabel("X")
     ax.set_ylabel("Y")
     ax.grid(alpha=0.18)
     ax.legend(loc="upper right", fontsize=7)
     _add_north_arrow(ax)
-    fig.colorbar(cf, ax=ax, shrink=0.86, label="Perbedaan E-type")
-    fig.suptitle("Perbedaan E-type SGS LIM: Cassini - Elips", fontsize=13, fontweight="bold")
+    fig.colorbar(cf, ax=ax, shrink=0.86, label="Difference E-type")
+    fig.suptitle("Difference E-type SGS LIM: Cassini - Ellipse", fontsize=13, fontweight="bold")
 
     if SAVE_FIGS:
         fig.savefig(output_file(file_name), dpi=MAP_DPI, bbox_inches="tight")
@@ -1576,20 +1574,20 @@ def plot_etype_differences(etype_maps, grid_info, hard_coords, file_name):
         plt.close(fig)
 
 def build_variogram_pair_sample(valid_points):
-    """Sampel pasangan grid bersama untuk variogram ensemble.
+    """Sample common grid pairs for ensemble variograms.
 
-    Pasangan terdiri atas kombinasi lokal dan global. Lag memakai jarak Euclidean
-    fisik, sedangkan arah memakai azimuth geologi axial 0-180 derajat.
+    Pairs combine local and global samples. Lag distance uses Euclidean distance
+    while direction uses axial geological azimuth from 0 to 180 degrees.
     """
     points = np.asarray(valid_points, dtype=float)
     n = len(points)
     if n < 2:
-        raise ValueError("Minimal dua node grid diperlukan untuk variogram ensemble.")
+        raise ValueError("At least two grid nodes are required for the ensemble variogram.")
 
     rng = np.random.default_rng(BASE_SEED + 99173)
     pair_blocks = []
 
-    # Pasangan lokal untuk menjaga representasi lag kecil.
+    
     tree = cKDTree(points)
     n_anchor = min(VARIOGRAM_LOCAL_ANCHORS, n)
     anchors = rng.choice(n, size=n_anchor, replace=False)
@@ -1601,7 +1599,7 @@ def build_variogram_pair_sample(valid_points):
     mask = a != b
     pair_blocks.append(np.column_stack([a[mask], b[mask]]))
 
-    # Pasangan global untuk lag sedang-besar.
+    
     n_global = max(
         VARIOGRAM_PAIR_SAMPLE,
         VARIOGRAM_PAIR_SAMPLE * VARIOGRAM_GLOBAL_PAIR_FACTOR,
@@ -1665,9 +1663,9 @@ def build_variogram_pair_sample(valid_points):
     counts = np.bincount(bin_id, minlength=VARIOGRAM_N_LAGS)
 
     print("\nVARIOGRAM ENSEMBLE PAIR SAMPLE")
-    print(f"Jumlah pasangan dipakai = {len(pairs)}")
+    print(f"Number of pairs used = {len(pairs)}")
     print(f"Lag maksimum            = {max_lag:.3f} m")
-    print(f"Jumlah lag bin          = {VARIOGRAM_N_LAGS}")
+    print(f"Number of lag bins          = {VARIOGRAM_N_LAGS}")
 
     return {
         "pairs": pairs.astype(np.int32),
@@ -1683,7 +1681,7 @@ def build_variogram_pair_sample(valid_points):
     }
 
 def experimental_variogram_from_pairs(values_gauss, pair_info):
-    """Variogram experimental satu realisasi pada lag bin bersama."""
+    """Compute the experimental variogram of one realization on common lag bins."""
     values = np.asarray(values_gauss, dtype=float)
     pairs = pair_info["pairs"]
     bins = pair_info["bin_id"].astype(int)
@@ -1698,7 +1696,7 @@ def experimental_variogram_from_pairs(values_gauss, pair_info):
 
 
 def theoretical_omnidirectional_variogram(lag_centers, model_name):
-    """Rata-rata angular variogram teoritis pada lag fisik (meter)."""
+    """Return the angularly averaged theoretical variogram at physical lag distances."""
     az = np.linspace(0.0, 180.0, 181, endpoint=False)
     az_rad = np.deg2rad(az)
     out = np.empty(len(lag_centers), dtype=float)
@@ -1711,14 +1709,14 @@ def theoretical_omnidirectional_variogram(lag_centers, model_name):
 
 
 def axial_angular_difference(azimuth_deg, target_deg):
-    """Selisih sudut axial 0-180; arah d dan d+180 dianggap sama."""
+    """Axial angular difference on 0-180 degrees; directions d and d+180 are equivalent."""
     azimuth_deg = np.asarray(azimuth_deg, dtype=float) % 180.0
     target_deg = float(target_deg) % 180.0
     return np.abs(((azimuth_deg - target_deg + 90.0) % 180.0) - 90.0)
 
 
 def build_directional_pair_infos(pair_info):
-    """Turunkan delapan subset pasangan dari sampel pasangan grid bersama."""
+    """Derive eight directional pair subsets from the common grid-pair sample."""
     infos = []
     az_all = np.asarray(pair_info["azimuth_axial"], dtype=float)
     bins_all = np.asarray(pair_info["bin_id"], dtype=int)
@@ -1756,7 +1754,7 @@ def build_directional_pair_infos(pair_info):
 
 
 def experimental_directional_variogram_from_pairs(values_gauss, dir_info):
-    """Experimental variogram satu realisasi pada satu arah."""
+    """Compute the experimental variogram of one realization in one direction."""
     values = np.asarray(values_gauss, dtype=float)
     pairs = dir_info["pairs"]
     bins = dir_info["bin_id"].astype(int)
@@ -1776,10 +1774,10 @@ def experimental_directional_variogram_from_pairs(values_gauss, dir_info):
 
 def hard_data_directional_variograms(hard_coords, hard_gauss, pair_info):
     """
-    Recalculate directional experimental variogram dari hard data menggunakan
-    lag bins dan tolerance VALIDASI. Ini adalah pemeriksaan ulang independen;
-    nilainya hanya identik dengan experimental variogram fitting asal jika
-    lag width/tolerance asal memang sama dengan setting validasi ini.
+    Recalculate directional experimental variograms from hard data using
+    validation lag bins and angular tolerance. This is an independent check;
+    the values are identical to the original fitted experimental variogram only if
+    the original lag width/tolerance matches these validation settings.
     """
     coords = np.asarray(hard_coords, dtype=float)
     values = np.asarray(hard_gauss, dtype=float)
@@ -1832,7 +1830,7 @@ def hard_data_directional_variograms(hard_coords, hard_gauss, pair_info):
 
 
 def spherical_variogram_with_range(lags, range_m):
-    """Spherical variogram fixed nugget/sill untuk range tertentu."""
+    """Spherical variogram with fixed nugget and sill for a specified range."""
     lags = np.asarray(lags, dtype=float)
     r = max(float(range_m), EPS)
     t = lags / r
@@ -1842,8 +1840,8 @@ def spherical_variogram_with_range(lags, range_m):
 
 def fit_directional_range_fixed_nugget_sill(lags, gamma, counts=None, max_lag=None):
     """
-    Fit hanya parameter range; nugget dan sill tetap sama dengan model SGS.
-    Digunakan untuk melihat apakah range pada 100 realisasi dapat mereproduksi
+    Fit only the range; nugget and sill remain fixed to the SGS model values.
+    Used to assess whether ranges from 100 realizations reproduce
     directional range target.
     """
     lags = np.asarray(lags, dtype=float)
@@ -1896,7 +1894,7 @@ def summarize_directional_variogram_validation(
     directional_pair_infos,
     hard_directional,
 ):
-    """Tabel validasi directional berdasarkan 100 realisasi."""
+    """Directional validation table based on 100 realizations."""
     rows = []
     centers = directional_pair_infos[0]["centers"]
 
@@ -1981,7 +1979,7 @@ def save_directional_variogram_tables(
     directional_pair_infos,
     hard_directional,
 ):
-    """Simpan kurva ensemble directional lengkap untuk audit."""
+    """Save full directional ensemble curves for audit."""
     centers = directional_pair_infos[0]["centers"]
 
     for model_name in MODELS:
@@ -2026,7 +2024,7 @@ def save_directional_variogram_tables(
                 })
 
         pd.DataFrame(rows).to_csv(
-            DIR_ENSEMBLE / f"variogram_directional_8arah_{model_name}.csv",
+            DIR_ENSEMBLE / f"variogram_directional_8directions_{model_name}.csv",
             index=False,
         )
 
@@ -2034,9 +2032,9 @@ def save_directional_variogram_tables(
 
 def plot_recovered_directional_ranges(
     directional_validation_df,
-    file_name="18_recovered_directional_range_8arah_2model.png",
+    file_name="18_recovered_directional_range_8directions_2models.png",
 ):
-    """Validasi langsung directional range 8 arah untuk dua model."""
+    """Directly validate eight-direction ranges for both models."""
     fig, axes = plt.subplots(
         1, len(MODELS), figsize=(19, 5.8),
         sharex=True, sharey=True, constrained_layout=True
@@ -2058,7 +2056,7 @@ def plot_recovered_directional_ranges(
 
         ax.plot(
             x, original, marker="o", linewidth=1.8,
-            label="Range 8-arah input"
+            label="Input eight-direction range"
         )
         ax.plot(
             x, model_r, marker="s", linewidth=1.5, linestyle="--",
@@ -2075,7 +2073,7 @@ def plot_recovered_directional_ranges(
             fmt="^",
             capsize=3,
             linewidth=1.0,
-            label="Median range simulasi + 95% interval",
+            label="Median simulated range + 95% interval",
         )
 
         ax.set_title(model_name, fontweight="bold")
@@ -2087,13 +2085,13 @@ def plot_recovered_directional_ranges(
 
     axes[0].set_ylabel("Directional range (m)")
     fig.suptitle(
-        "Validasi Reproduksi Directional Range 8 Arah dari 100 Realisasi SGS",
+        "Validation of Eight-Direction Range Reproduction from 100 SGS Realizations",
         fontsize=13, fontweight="bold"
     )
 
     if SAVE_FIGS:
         fig.savefig(
-            output_file(Path("05_diagnostik_ensemble") / file_name),
+            output_file(Path("05_ensemble_diagnostics") / file_name),
             dpi=MAP_DPI,
             bbox_inches="tight",
         )
@@ -2110,10 +2108,10 @@ def plot_directional_variogram_validation(
     hard_directional,
 ):
     """
-    Satu gambar 2x4 untuk tiap model.
-    Setiap panel arah menampilkan 100 garis variogram realisasi agar pola
-    reproduksi antar realisasi terlihat jelas. Tidak ada garis median maupun
-    garis target model, karena setiap arah memang mempunyai range yang berbeda.
+    Create one 2x4 figure for each model.
+    Each directional panel displays 100 realization variogram curves so that
+    reproduction across realizations is visible. No median or
+    target-model line is shown because each direction has a different range.
     """
     centers = directional_pair_infos[0]["centers"]
     x_max = directional_pair_infos[0]["max_lag"]
@@ -2136,7 +2134,7 @@ def plot_directional_variogram_validation(
                 ax.plot(
                     centers, curves[r],
                     linewidth=0.65, alpha=0.14,
-                    label="100 realisasi" if r == 0 else None,
+                    label="100 realization" if r == 0 else None,
                 )
 
             hard_valid = np.isfinite(hard_curve)
@@ -2158,18 +2156,18 @@ def plot_directional_variogram_validation(
 
         for ax in axes[4:]:
             ax.set_xlabel("Lag distance (m)")
-        axes[0].set_ylabel("Semivariance normal-score")
-        axes[4].set_ylabel("Semivariance normal-score")
+        axes[0].set_ylabel("Normal-score semivariance")
+        axes[4].set_ylabel("Normal-score semivariance")
         axes[0].legend(fontsize=7, loc="best")
 
         fig.suptitle(
-            f"Variogram Directional 8 Arah - 100 Realisasi SGS {model_name}",
+            f"Eight-Direction Variograms - 100 SGS Realizations {model_name}",
             fontsize=14, fontweight="bold"
         )
         if SAVE_FIGS:
             fig.savefig(
                 DIR_ENSEMBLE /
-                f"17_variogram_directional_8arah_validasi_{model_name}.png",
+                f"17_variogram_directional_8directions_validation_{model_name}.png",
                 dpi=MAP_DPI,
                 bbox_inches="tight",
             )
@@ -2181,7 +2179,7 @@ def plot_directional_variogram_validation(
 
 
 def histogram_validation_table(realizations, z_original):
-    """Ringkasan reproduksi distribusi global sebagai alat validasi histogram."""
+    """Summarize global-distribution reproduction for histogram validation."""
     z_original = np.asarray(z_original, dtype=float)
     z_original = z_original[np.isfinite(z_original)]
 
@@ -2210,8 +2208,8 @@ def histogram_validation_table(realizations, z_original):
             "P90": np.percentile(pooled, 90),
         }
 
-        # Quantile RMSE memberi ringkasan sederhana kemiripan histogram tanpa
-        # memakai p-value yang tidak tepat untuk data spasial yang saling berkorelasi.
+        # Quantile RMSE provides a simple summary of distributional similarity without
+        
         qkeys = ["P10", "P25", "P50", "P75", "P90"]
         q_rmse = np.sqrt(np.mean([
             (model_stats[k] - raw_stats[k]) ** 2 for k in qkeys
@@ -2262,9 +2260,9 @@ def _global_thickness_range(realizations, z_original):
 
 def plot_histogram_100_realizations_by_model(realizations, z_original):
     """
-    Satu gambar per model. Setiap gambar menampilkan 100 histogram garis
-    (step histogram) agar bentuknya tetap mengikuti histogram asli dan tidak
-    terlalu smooth. Tidak ada garis rata-rata.
+    Create one figure per model. Each figure displays 100 histogram lines
+    (step histograms) to preserve the original histogram shape without
+    excessive smoothing. No mean line is shown.
     """
     vmin, vmax = _global_thickness_range(realizations, z_original)
     bins = np.linspace(vmin, vmax, HISTOGRAM_BINS + 1)
@@ -2287,21 +2285,21 @@ def plot_histogram_100_realizations_by_model(realizations, z_original):
             ax.step(
                 centers, rel, where="mid",
                 linewidth=0.7, alpha=0.16,
-                label="100 realisasi" if r == 0 else None,
+                label="100 realization" if r == 0 else None,
             )
 
         ax.step(
             centers, raw_rel, where="mid",
             linewidth=2.0, linestyle="--",
-            label="Histogram data bor",
+            label="Drillhole-data histogram",
         )
 
         ax.set_title(
-            f"Histogram 100 Realisasi SGS - {model_name}",
+            f"Histogram 100 Realization SGS - {model_name}",
             fontsize=13, fontweight="bold",
         )
-        ax.set_xlabel("Ketebalan LIM")
-        ax.set_ylabel("Frekuensi relatif")
+        ax.set_xlabel("Limonite Thickness")
+        ax.set_ylabel("Relative frequency")
         ax.set_xlim(vmin, vmax)
         ax.set_ylim(bottom=0.0)
         ax.grid(alpha=0.22)
@@ -2310,8 +2308,8 @@ def plot_histogram_100_realizations_by_model(realizations, z_original):
         if SAVE_FIGS:
             fig.savefig(
                 output_file(
-                    Path("05_diagnostik_ensemble") /
-                    f"13_histogram_100_realisasi_{model_name.lower()}.png"
+                    Path("05_ensemble_diagnostics") /
+                    f"13_histogram_100_realization_{model_name.lower()}.png"
                 ),
                 dpi=MAP_DPI,
                 bbox_inches="tight",
@@ -2322,8 +2320,8 @@ def plot_histogram_100_realizations_by_model(realizations, z_original):
             plt.close(fig)
 
 
-def plot_uncertainty_ensemble(post, file_name="14_uncertainty_plot_100_realisasi_2model.png"):
-    """Satu gambar uncertainty plot dari 100 realisasi untuk dua model."""
+def plot_uncertainty_ensemble(post, file_name="14_uncertainty_plot_100_realization_2model.png"):
+    """Create one uncertainty-plot figure from 100 realizations for both models."""
     reference = np.mean(np.vstack([post[m]["Etype"] for m in MODELS]), axis=0)
     order = np.argsort(reference)
     x = np.arange(1, len(order) + 1)
@@ -2343,11 +2341,11 @@ def plot_uncertainty_ensemble(post, file_name="14_uncertainty_plot_100_realisasi
         ax.plot(x, p50, linewidth=1.25, label="P50")
         ax.plot(x, et, linewidth=1.0, linestyle="--", label="E-type")
         ax.set_title(model_name, fontweight="bold")
-        ax.set_xlabel("Node grid (urutan E-type referensi)")
+        ax.set_xlabel("Grid node (reference E-type order)")
         ax.grid(alpha=0.20)
         ax.legend(fontsize=8)
-    axes[0].set_ylabel("Ketebalan LIM")
-    fig.suptitle("Uncertainty plot 100 realisasi SGS - interval simulasi per node", fontsize=13, fontweight="bold")
+    axes[0].set_ylabel("Limonite Thickness")
+    fig.suptitle("SGS uncertainty plot - 100 realizations and simulation interval per node", fontsize=13, fontweight="bold")
 
     if SAVE_FIGS:
         fig.savefig(output_file(file_name), dpi=MAP_DPI, bbox_inches="tight")
@@ -2366,7 +2364,7 @@ def _empirical_cdf_on_grid(values, x_grid):
 
 
 def plot_cdf_100_realizations_by_model(realizations, z_original):
-    """Satu gambar CDF per model dengan 100 kurva realisasi terlihat."""
+    """Create one CDF figure per model showing 100 realization curves."""
     vmin, vmax = _global_thickness_range(realizations, z_original)
     x = np.linspace(vmin, vmax, CDF_BINS)
     raw_cdf = _empirical_cdf_on_grid(z_original, x)
@@ -2382,19 +2380,19 @@ def plot_cdf_100_realizations_by_model(realizations, z_original):
             ax.plot(
                 x, cdf,
                 linewidth=0.65, alpha=0.15,
-                label="100 realisasi" if r == 0 else None,
+                label="100 realization" if r == 0 else None,
             )
 
         curves = np.asarray(curves, dtype=float)
         mean_cdf = np.nanmean(curves, axis=0)
-        ax.plot(x, mean_cdf, linewidth=2.4, label="Rata-rata CDF 100 realisasi")
-        ax.plot(x, raw_cdf, linewidth=2.0, linestyle="--", label="CDF data bor")
+        ax.plot(x, mean_cdf, linewidth=2.4, label="Mean CDF of 100 realizations")
+        ax.plot(x, raw_cdf, linewidth=2.0, linestyle="--", label="Drillhole-data CDF")
 
         ax.set_title(
-            f"CDF 100 Realisasi SGS - {model_name}",
+            f"CDF 100 Realization SGS - {model_name}",
             fontsize=13, fontweight="bold",
         )
-        ax.set_xlabel("Ketebalan LIM")
+        ax.set_xlabel("Limonite Thickness")
         ax.set_ylabel("Probabilitas kumulatif")
         ax.set_xlim(vmin, vmax)
         ax.set_ylim(0.0, 1.0)
@@ -2404,8 +2402,8 @@ def plot_cdf_100_realizations_by_model(realizations, z_original):
         if SAVE_FIGS:
             fig.savefig(
                 output_file(
-                    Path("05_diagnostik_ensemble") /
-                    f"15_CDF_100_realisasi_{model_name.lower()}.png"
+                    Path("05_ensemble_diagnostics") /
+                    f"15_CDF_100_realization_{model_name.lower()}.png"
                 ),
                 dpi=MAP_DPI,
                 bbox_inches="tight",
@@ -2417,7 +2415,7 @@ def plot_cdf_100_realizations_by_model(realizations, z_original):
 
 
 def plot_variogram_100_realizations_by_model(variogram_curves, pair_info):
-    """Satu gambar variogram per model dengan 100 garis realisasi."""
+    """Create one variogram figure per model showing 100 realization curves."""
     centers = pair_info["centers"]
 
     for model_name in MODELS:
@@ -2432,18 +2430,18 @@ def plot_variogram_100_realizations_by_model(variogram_curves, pair_info):
             ax.plot(
                 centers, curves[r],
                 linewidth=0.7, alpha=0.16,
-                label="100 variogram realisasi" if r == 0 else None,
+                label="100 variogram realization" if r == 0 else None,
             )
 
         ax.plot(
             centers, mean_curve,
             linewidth=2.4, marker="o", markersize=3,
-            label="Mean 100 realisasi",
+            label="Mean 100 realization",
         )
         ax.plot(
             centers, median_curve,
             linewidth=1.8, linestyle="--",
-            label="Median 100 realisasi",
+            label="Median 100 realization",
         )
         ax.plot(
             centers, target,
@@ -2453,11 +2451,11 @@ def plot_variogram_100_realizations_by_model(variogram_curves, pair_info):
         ax.axhline(SILL, linewidth=1.0, linestyle="-.", label="Sill")
 
         ax.set_title(
-            f"Variogram 100 Realisasi SGS - {model_name}",
+            f"Variogram 100 Realization SGS - {model_name}",
             fontsize=13, fontweight="bold",
         )
         ax.set_xlabel("Lag distance (m)")
-        ax.set_ylabel("Semivariance normal-score")
+        ax.set_ylabel("Normal-score semivariance")
         ax.set_ylim(bottom=0.0)
         ax.grid(alpha=0.22)
         ax.legend(fontsize=9)
@@ -2465,8 +2463,8 @@ def plot_variogram_100_realizations_by_model(variogram_curves, pair_info):
         if SAVE_FIGS:
             fig.savefig(
                 output_file(
-                    Path("05_diagnostik_ensemble") /
-                    f"16_variogram_100_realisasi_{model_name.lower()}.png"
+                    Path("05_ensemble_diagnostics") /
+                    f"16_variogram_100_realization_{model_name.lower()}.png"
                 ),
                 dpi=MAP_DPI,
                 bbox_inches="tight",
@@ -2486,47 +2484,45 @@ def main():
     prepare_output_folders()
 
     print("\n" + "=" * 72)
-    print("FOLDER OUTPUT RUN BARU")
+    print("OUTPUT DIRECTORIES")
     print("=" * 72)
     print(f"Root output            = {OUTPUT_DIR.resolve()}")
-    print(f"CSV realisasi          = {DIR_REALIZATION_CSV.resolve()}")
-    print(f"Peta individual        = {DIR_INDIVIDUAL_MAPS.resolve()}")
-    print(f"Peta perbandingan      = {DIR_COMPARE_MAPS.resolve()}")
-    print(f"Ringkasan/diagnostik   = {DIR_SUMMARY.resolve()}")
+    print(f"Realization CSV files = {DIR_REALIZATION_CSV.resolve()}")
+    print(f"Individual maps = {DIR_INDIVIDUAL_MAPS.resolve()}")
+    print(f"Comparison maps = {DIR_COMPARE_MAPS.resolve()}")
+    print(f"Summary/diagnostics   = {DIR_SUMMARY.resolve()}")
 
     data = load_thickness_data()
     hard_coords = data[["X", "Y"]].values.astype(float)
     z_original = data["Z"].values.astype(float)
 
-    # Normal-score transform
+    
     hard_gauss, y_table, z_table = normal_score_transform(z_original)
 
     print("\n" + "=" * 72)
     print("NORMAL SCORE")
     print("=" * 72)
-    print(f"Mean normal score     = {np.mean(hard_gauss):.6f}")
-    print(f"Std normal score      = {np.std(hard_gauss, ddof=1):.6f}")
-    print(f"NUGGET                = {NUGGET:.4f}")
-    print(f"PARTIAL_SILL          = {PARTIAL_SILL:.4f}")
-    print(f"TOTAL SILL            = {SILL:.4f}")
+    print(f"Mean normal score = {np.mean(hard_gauss):.6f}")
+    print(f"SD normal score = {np.std(hard_gauss, ddof=1):.6f}")
+    print(f"Nugget = {NUGGET:.4f}")
+    print(f"Partial sill = {PARTIAL_SILL:.4f}")
+    print(f"Total sill = {SILL:.4f}")
 
     print("\n" + "=" * 72)
-    print("PARAMETER DIRECTIONAL RANGE")
+    print("DIRECTIONAL RANGE PARAMETERS")
     print("=" * 72)
     print(
-        f"Elips     : Az={ELLIPSE_PHI_AZ:.5f}°, "
+        f"Ellipse   : Az={ELLIPSE_PHI_AZ:.5f}°, "
         f"A={ELLIPSE_MAJOR:.5f} m, B={ELLIPSE_MINOR:.5f} m, "
         f"A/B={ELLIPSE_RATIO:.5f}"
     )
     print(
         f"Cassini   : Az={CASSINI_PHI_AZ:.5f}°, "
-        f"a={CASSINI_A:.5f} m, c={CASSINI_C:.5f} m, "
-        f"c/a={CASSINI_RATIO_CA:.5f}, "
-        f"sx={CASSINI_SX:.5f}, sy={CASSINI_SY:.5f}"
+        f"a={CASSINI_A:.5f} m, b={CASSINI_B:.5f} m"
     )
     print(f"NMIN={NMIN}, NMAX={NMAX}, search h/R={NORMALIZED_SEARCH_RADIUS}")
-    print(f"Jumlah realisasi      = {N_REALIZATIONS}")
-    print(f"Base seed             = {BASE_SEED}")
+    print(f"Number of realizations = {N_REALIZATIONS}")
+    print(f"Base seed = {BASE_SEED}")
 
     grid_info = build_grid(data)
     valid_points = grid_info["valid_points"]
@@ -2538,7 +2534,7 @@ def main():
         for model_name in MODELS
     }
 
-    # Optional LOOCV sebelum simulasi.
+
     cv_summary_rows = []
     cv_details = {}
     if RUN_LOOCV:
@@ -2557,13 +2553,13 @@ def main():
                 f"ME={summary['CV_ME']:.4f} | R2={summary['CV_R2']:.4f}"
             )
 
-    # Simpan realisasi pada unit asli dalam float32 untuk mengurangi RAM.
+    
     realizations = {
         model_name: np.empty((N_REALIZATIONS, n_valid), dtype=np.float32)
         for model_name in MODELS
     }
 
-    # Variogram ensemble dihitung langsung dari normal-score tiap realisasi.
+    
     if RUN_ENSEMBLE_DIAGNOSTICS:
         pair_info = build_variogram_pair_sample(valid_points)
         variogram_curves = {
@@ -2606,11 +2602,11 @@ def main():
     diagnostics_rows = []
 
     print("\n" + "=" * 72)
-    print(f"MENJALANKAN SGS {N_REALIZATIONS} REALISASI - 2 MODEL")
+    print(f"RUNNING SGS: {N_REALIZATIONS} REALIZATIONS - 2 MODELS")
     print("=" * 72)
     print(
-        "Setiap pasangan realisasi Elips dan Cassini menggunakan "
-        "random path dan Gaussian innovation yang sama."
+        "Each paired Ellipse/Cassini realization uses "
+        "the same random path and Gaussian innovations."
     )
 
     for r in range(N_REALIZATIONS):
@@ -2618,7 +2614,7 @@ def main():
         seed = BASE_SEED + r
         rng = np.random.default_rng(seed)
 
-        # PAIRED path dan innovations untuk kedua model.
+        
         random_path = rng.permutation(n_valid)
         gaussian_innovations = rng.standard_normal(n_valid)
         t0 = time.time()
@@ -2665,11 +2661,11 @@ def main():
                 "Sim_max": float(np.max(sim_z)),
             })
 
-        # Simpan paired CSV segera setelah kedua model pada realisasi ini selesai.
-        # Jadi hasil R001-R100 tidak bergantung pada proses ekspor ratusan peta setelah SGS.
+        
+        
         if SAVE_EACH_REALIZATION_CSV and SAVE_REALIZATION_CSV_DURING_SIMULATION:
             csv_path = DIR_REALIZATION_CSV / (
-                f"R{realization_number:03d}_SGS_LIM_Elips_Cassini.csv"
+                f"R{realization_number:03d}_SGS_LIM_Ellipse_Cassini.csv"
             )
             pd.DataFrame({
                 "X": valid_points[:, 0],
@@ -2677,7 +2673,7 @@ def main():
                 **{f"SGS_{m}": realizations[m][r] for m in MODELS},
             }).to_csv(csv_path, index=False)
 
-        # Checkpoint diagnostik ringan setiap 5 realisasi.
+        
         if realization_number % 5 == 0 or realization_number == N_REALIZATIONS:
             pd.DataFrame(diagnostics_rows).to_csv(
                 DIR_TABLES / "diagnostic_checkpoint.csv", index=False
@@ -2685,7 +2681,7 @@ def main():
 
         dt = time.time() - t0
         print(
-            f"Realisasi {realization_number:03d}/{N_REALIZATIONS} selesai "
+            f"Realization {realization_number:03d}/{N_REALIZATIONS} completed "
             f"| seed={seed} | {dt:.1f} detik"
         )
 
@@ -2765,8 +2761,8 @@ def main():
     comparison_df = pd.DataFrame(comparison_rows)
 
     # ---------------- SAVE OUTPUT ----------------
-    diagnostics_df.to_csv(DIR_TABLES / "diagnostic_100_realisasi_2model.csv", index=False)
-    comparison_df.to_csv(DIR_TABLES / "comparison_summary_Elips_Cassini.csv", index=False)
+    diagnostics_df.to_csv(DIR_TABLES / "diagnostic_100_realization_2model.csv", index=False)
+    comparison_df.to_csv(DIR_TABLES / "comparison_summary_Ellipse_Cassini.csv", index=False)
 
     if RUN_LOOCV:
         pd.DataFrame(cv_summary_rows).to_csv(DIR_TABLES / "LOOCV_summary.csv", index=False)
@@ -2778,7 +2774,7 @@ def main():
     if SAVE_ALL_REALIZATIONS:
         for model_name in MODELS:
             np.save(
-                DIR_ARRAYS / f"SGS_LIM_{model_name}_{N_REALIZATIONS}realisasi.npy",
+                DIR_ARRAYS / f"SGS_LIM_{model_name}_{N_REALIZATIONS}realization.npy",
                 realizations[model_name],
             )
         np.savez(
@@ -2810,10 +2806,10 @@ def main():
 
     pd.DataFrame({
         "NormalScore_table": y_table,
-        "Ketebalan_LIM_sorted": z_table,
+        "Thickness_LIM_sorted": z_table,
     }).to_csv(DIR_TABLES / "normal_score_backtransform_table.csv", index=False)
 
-    # Tabel validasi distribusi global.
+    
     histogram_validation_df = histogram_validation_table(
         realizations, z_original
     )
@@ -2823,7 +2819,7 @@ def main():
     )
 
     if RUN_ENSEMBLE_DIAGNOSTICS:
-        # Simpan variogram omnidirectional 100 realisasi.
+        
         vario_table = pd.DataFrame({"Lag_m": pair_info["centers"]})
         for model_name in MODELS:
             curves = variogram_curves[model_name]
@@ -2836,13 +2832,13 @@ def main():
             )
         vario_table["Pair_count"] = pair_info["counts"]
         vario_table.to_csv(
-            DIR_ENSEMBLE / "variogram_ensemble_100_realisasi.csv",
+            DIR_ENSEMBLE / "variogram_ensemble_100_realization.csv",
             index=False,
         )
 
         if RUN_DIRECTIONAL_VARIOGRAM_VALIDATION:
             DIRECTIONAL_VALIDATION_TABLE.to_csv(
-                DIR_TABLES / "directional_range_8arah_input.csv",
+                DIR_TABLES / "directional_range_8directions_input.csv",
                 index=False,
             )
             directional_validation_df.to_csv(
@@ -2855,7 +2851,7 @@ def main():
                 hard_directional,
             )
 
-    # Skala global sama untuk SELURUH peta yang bersatuan ketebalan LIM.
+    
     global_vmin = float(np.nanmin(z_original))
     global_vmax = float(np.nanmax(z_original))
     for m in MODELS:
@@ -2869,14 +2865,14 @@ def main():
         )
 
     print(
-        f"Skala global peta ketebalan = "
+        f"Global thickness-map scale = "
         f"{global_vmin:.4f} s.d. {global_vmax:.4f}"
     )
 
     print("\n" + "=" * 72)
-    print("MENYIMPAN 100 REALISASI DAN PETA SGS 2 MODEL")
+    print("SAVING 100 REALIZATIONS AND SGS MAPS FOR BOTH MODELS")
     print("=" * 72)
-    print(f"Root folder output = {OUTPUT_DIR.resolve()}")
+    print(f"Output root folder = {OUTPUT_DIR.resolve()}")
 
     for r in range(N_REALIZATIONS):
         real_no = r + 1
@@ -2892,14 +2888,14 @@ def main():
                 **{f"SGS_{m}": realizations[m][r] for m in MODELS},
             })
             realization_df.to_csv(
-                DIR_REALIZATION_CSV / f"R{real_no:03d}_SGS_LIM_Elips_Cassini.csv",
+                DIR_REALIZATION_CSV / f"R{real_no:03d}_SGS_LIM_Ellipse_Cassini.csv",
                 index=False,
             )
 
         if SAVE_INDIVIDUAL_REALIZATION_MAPS:
             for model_name in MODELS:
-                rel_file = Path("02_peta_individual") / model_name / (
-                    f"R{real_no:03d}_Peta_SGS_LIM_{model_name}.png"
+                rel_file = Path("02_map_individual") / model_name / (
+                    f"R{real_no:03d}_Map_SGS_LIM_{model_name}.png"
                 )
                 if should_export(rel_file):
                     plot_single_sgs_map(
@@ -2915,8 +2911,8 @@ def main():
                     )
 
         if SAVE_PAIRED_REALIZATION_MAPS:
-            rel_compare = Path("03_peta_perbandingan") / (
-                f"R{real_no:03d}_Peta_Perbandingan_2Model.png"
+            rel_compare = Path("03_comparison_maps") / (
+                f"R{real_no:03d}_Comparison_Map_2Models.png"
             )
             if should_export(rel_compare):
                 plot_comparison_sgs_map(
@@ -2930,15 +2926,15 @@ def main():
                     global_vmax,
                 )
 
-        # Bersihkan object figure/memori secara berkala untuk ekspor ratusan peta.
+        
         plt.close("all")
         if real_no % 5 == 0:
             gc.collect()
 
         if real_no % 10 == 0 or real_no == 1:
-            print(f"  ekspor peta realisasi {real_no:03d}/{N_REALIZATIONS} selesai/terverifikasi")
+            print(f"  exported/verified realization map {real_no:03d}/{N_REALIZATIONS}")
 
-    # ---------------- PLOTS RINGKASAN SPASIAL ----------------
+    # ---------------- SPATIAL SUMMARY PLOTS ----------------
     example_idx = int(np.clip(EXAMPLE_REALIZATION - 1, 0, N_REALIZATIONS - 1))
     example_maps = {
         m: valid_to_full_grid(realizations[m][example_idx], grid_info)
@@ -2948,30 +2944,30 @@ def main():
         example_maps,
         grid_info,
         hard_coords,
-        {m: f"{m} - Realisasi {example_idx + 1}" for m in MODELS},
-        "SGS Ketebalan LIM - Contoh Paired Realization 2 Model",
-        Path("04_ringkasan_spasial") / "01_contoh_realisasi_2model.png",
-        "Ketebalan LIM",
+        {m: f"{m} - Realization {example_idx + 1}" for m in MODELS},
+        "SGS Limonite Thickness - Example Paired Realization for Two Models",
+        Path("04_spatial_summary") / "01_example_realization_2models.png",
+        "Limonite Thickness",
         fixed_vmin=global_vmin,
         fixed_vmax=global_vmax,
     )
 
     summary_specs = [
-        ("Etype", "E-type", "E-type dari 100 Realisasi SGS - Ketebalan LIM", "02_Etype_2model.png", "Ketebalan LIM"),
-        ("SD", "SD", "Standard Deviation 100 Realisasi SGS - Ketebalan LIM", "03_SD_2model.png", "SD Ketebalan LIM"),
-        ("Variance", "Variance", "Variance 100 Realisasi SGS - Ketebalan LIM", "04_Variance_2model.png", "Variance"),
-        ("CL95_Lower", "P2.5", "Lower 95% Simulation Interval SGS - Ketebalan LIM", "05_P025_2model.png", "Ketebalan LIM"),
-        ("CL95_Upper", "P97.5", "Upper 95% Simulation Interval SGS - Ketebalan LIM", "06_P975_2model.png", "Ketebalan LIM"),
-        ("CL95_Width", "Width P2.5-P97.5", "Lebar 95% Simulation Interval SGS - Ketebalan LIM", "07_interval95_width_2model.png", "Lebar interval"),
-        ("P25", "P25", "P25 dari 100 Realisasi SGS - Ketebalan LIM", "08_P25_2model.png", "Ketebalan LIM"),
-        ("P50", "P50", "P50 dari 100 Realisasi SGS - Ketebalan LIM", "09_P50_2model.png", "Ketebalan LIM"),
-        ("P75", "P75", "P75 dari 100 Realisasi SGS - Ketebalan LIM", "10_P75_2model.png", "Ketebalan LIM"),
-        ("P95", "P95", "P95 dari 100 Realisasi SGS - Ketebalan LIM", "11_P95_2model.png", "Ketebalan LIM"),
+        ("Etype", "E-type", "E-type of 100 Realization SGS - Limonite Thickness", "02_Etype_2model.png", "Limonite Thickness"),
+        ("SD", "SD", "Standard Deviation 100 Realization SGS - Limonite Thickness", "03_SD_2model.png", "SD Limonite Thickness"),
+        ("Variance", "Variance", "Variance 100 Realization SGS - Limonite Thickness", "04_Variance_2model.png", "Variance"),
+        ("CL95_Lower", "P2.5", "Lower 95% Simulation Interval SGS - Limonite Thickness", "05_P025_2model.png", "Limonite Thickness"),
+        ("CL95_Upper", "P97.5", "Upper 95% Simulation Interval SGS - Limonite Thickness", "06_P975_2model.png", "Limonite Thickness"),
+        ("CL95_Width", "Width P2.5-P97.5", "Width 95% Simulation Interval SGS - Limonite Thickness", "07_interval95_width_2model.png", "Interval width"),
+        ("P25", "P25", "P25 of 100 Realization SGS - Limonite Thickness", "08_P25_2model.png", "Limonite Thickness"),
+        ("P50", "P50", "P50 of 100 Realization SGS - Limonite Thickness", "09_P50_2model.png", "Limonite Thickness"),
+        ("P75", "P75", "P75 of 100 Realization SGS - Limonite Thickness", "10_P75_2model.png", "Limonite Thickness"),
+        ("P95", "P95", "P95 of 100 Realization SGS - Limonite Thickness", "11_P95_2model.png", "Limonite Thickness"),
     ]
 
-    # Output yang memang bersatuan ketebalan memakai skala GLOBAL yang sama.
-    # SD, Variance, dan Width punya satuan berbeda sehingga tidak dipaksa memakai
-    # skala ketebalan; namun skala antar model tetap identik di dalam tiap gambar.
+    
+    
+    
     thickness_keys = {
         "Etype", "CL95_Lower", "CL95_Upper",
         "P25", "P50", "P75", "P95",
@@ -2990,7 +2986,7 @@ def main():
             hard_coords,
             titles,
             suptitle,
-            Path("04_ringkasan_spasial") / filename,
+            Path("04_spatial_summary") / filename,
             cbar_label,
             fixed_vmin=global_vmin if key in thickness_keys else None,
             fixed_vmax=global_vmax if key in thickness_keys else None,
@@ -3003,10 +2999,10 @@ def main():
             etype_maps,
             grid_info,
             hard_coords,
-            Path("04_ringkasan_spasial") / "12_difference_Etype_2model.png",
+            Path("04_spatial_summary") / "12_difference_Etype_2model.png",
         )
 
-    # Histogram mean/std per realisasi (tetap dipertahankan dari script asal).
+    
     fig, axes = plt.subplots(1, 2, figsize=(12, 4.8), constrained_layout=True)
     for model_name in MODELS:
         sub = diagnostics_df[diagnostics_df["Model"] == model_name]
@@ -3014,23 +3010,23 @@ def main():
         axes[1].hist(sub["Sim_std"], bins=15, alpha=0.45, label=model_name)
     axes[0].axvline(np.mean(z_original), linestyle="--", linewidth=1.5, label="Hard data mean")
     axes[1].axvline(np.std(z_original, ddof=1), linestyle="--", linewidth=1.5, label="Hard data std")
-    axes[0].set_title("Mean per Realisasi")
-    axes[1].set_title("Standard Deviation per Realisasi")
-    axes[0].set_xlabel("Mean Ketebalan LIM")
-    axes[1].set_xlabel("Std Ketebalan LIM")
-    axes[0].set_ylabel("Frekuensi")
-    axes[1].set_ylabel("Frekuensi")
+    axes[0].set_title("Mean per Realization")
+    axes[1].set_title("Standard Deviation per Realization")
+    axes[0].set_xlabel("Mean Limonite Thickness")
+    axes[1].set_xlabel("SD Limonite Thickness")
+    axes[0].set_ylabel("Frequency")
+    axes[1].set_ylabel("Frequency")
     for ax in axes:
         ax.legend(fontsize=8)
         ax.grid(alpha=0.2)
     if SAVE_FIGS:
-        fig.savefig(DIR_ENSEMBLE / "12b_histogram_mean_std_per_realisasi.png", dpi=250, bbox_inches="tight")
+        fig.savefig(DIR_ENSEMBLE / "12b_histogram_mean_std_per_realization.png", dpi=250, bbox_inches="tight")
     if SHOW_PLOTS:
         plt.show()
     else:
         plt.close(fig)
 
-    # ---------------- OUTPUT DIAGNOSTIK ENSEMBLE ----------------
+    
     if RUN_ENSEMBLE_DIAGNOSTICS:
         plot_histogram_100_realizations_by_model(
             realizations,
@@ -3038,8 +3034,8 @@ def main():
         )
         plot_uncertainty_ensemble(
             post,
-            Path("05_diagnostik_ensemble") /
-            "14_uncertainty_plot_100_realisasi_2model.png",
+            Path("05_ensemble_diagnostics") /
+            "14_uncertainty_plot_100_realization_2model.png",
         )
         plot_cdf_100_realizations_by_model(
             realizations,
@@ -3062,32 +3058,32 @@ def main():
 
     elapsed = time.time() - start_all
     print("\n" + "=" * 72)
-    print("SGS SELESAI")
+    print("SGS COMPLETE")
     print("=" * 72)
     print(comparison_df.round(5).to_string(index=False))
     print(f"\nWaktu total = {elapsed / 60.0:.2f} menit")
-    print(f"Output tersimpan di root baru: {OUTPUT_DIR.resolve()}")
-    print("\nStruktur folder output:")
-    print(f"- 01_realisasi_csv      : {DIR_REALIZATION_CSV}")
-    print(f"- 02_peta_individual    : {DIR_INDIVIDUAL_MAPS}")
-    print(f"- 03_peta_perbandingan  : {DIR_COMPARE_MAPS}")
-    print(f"- 04_ringkasan_spasial  : {DIR_SUMMARY}")
-    print(f"- 05_diagnostik_ensemble: {DIR_ENSEMBLE}")
-    print(f"- 06_tabel_diagnostik   : {DIR_TABLES}")
+    print(f"Outputs saved to: {OUTPUT_DIR.resolve()}")
+    print("\nOutput folder structure:")
+    print(f"- 01_realization_csv      : {DIR_REALIZATION_CSV}")
+    print(f"- 02_map_individual    : {DIR_INDIVIDUAL_MAPS}")
+    print(f"- 03_comparison_maps  : {DIR_COMPARE_MAPS}")
+    print(f"- 04_spatial_summary  : {DIR_SUMMARY}")
+    print(f"- 05_ensemble_diagnostics: {DIR_ENSEMBLE}")
+    print(f"- 06_diagnostic_tables   : {DIR_TABLES}")
     print(f"- 07_array_npy          : {DIR_ARRAYS}")
-    print("\nOutput utama:")
+    print("\nMain outputs:")
     print(f"1. {N_REALIZATIONS} CSV paired 2 model (R001 ... R{N_REALIZATIONS:03d})")
-    print(f"2. {N_REALIZATIONS} peta SGS Elips")
-    print(f"3. {N_REALIZATIONS} peta SGS Cassini")
-    print(f"4. {N_REALIZATIONS} peta perbandingan paired 2 model")
-    print("5. E-type, SD, variance, interval simulasi, percentile, dan difference map Cassini-Elips")
-    print("6. Histogram: 100 garis/step realisasi per model (Y = Frekuensi relatif)")
-    print("7. Uncertainty plot 100 realisasi")
-    print("8. CDF: 100 garis realisasi dalam 1 gambar untuk tiap model")
-    print("9. Variogram: 100 garis realisasi dalam 1 gambar untuk tiap model")
-    print("10. Variogram directional 8 arah: 2 gambar (Elips, Cassini)")
-    print("11. Tabel recovered directional range dan RMSE variogram")
-    print("12. Plot recovered directional range 8 arah (input vs model vs simulasi)")
+    print(f"2. {N_REALIZATIONS} SGS maps - Ellipse")
+    print(f"3. {N_REALIZATIONS} map SGS Cassini")
+    print(f"4. {N_REALIZATIONS} paired comparison maps for two models")
+    print("5. E-type, SD, variance, simulation intervals, percentiles, and Cassini-Ellipse difference map")
+    print("6. Histogram: 100 realization step curves per model (Y = relative frequency)")
+    print("7. Uncertainty plot 100 realization")
+    print("8. CDF: 100 realization curves in one figure for each model")
+    print("9. Variogram: 100 realization curves in one figure for each model")
+    print("10. Eight-direction variograms: two figures (Ellipse, Cassini)")
+    print("11. Table of recovered directional ranges and variogram RMSE")
+    print("12. Recovered eight-direction range plot (input vs model vs simulation)")
 
     return {
         "comparison": comparison_df,

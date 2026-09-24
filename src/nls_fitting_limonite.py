@@ -4,7 +4,7 @@
 This public-repository script reproduces the nonlinear least-squares (NLS)
 fitting used to compare two anisotropy geometries:
     1. Elliptical anisotropy
-    2. Affine-scaled Cassini Oval anisotropy
+    2. Cassini Oval anisotropy
 
 The directional ranges are embedded in this script and do not contain
 confidential drillhole coordinates or assay data.
@@ -90,8 +90,8 @@ def polar_to_east_north(azimuth_deg, radius):
     return radius * np.sin(az), radius * np.cos(az)
 
 
-def fit_statistics(observed, predicted, n_parameters):
-    """Return SSE, RMSE, MAE, R² and descriptive adjusted R²."""
+def fit_statistics(observed, predicted):
+    """Return SSE, RMSE, MAE, and R²."""
     observed = np.asarray(observed, dtype=float)
     predicted = np.asarray(predicted, dtype=float)
     residual = predicted - observed
@@ -102,19 +102,11 @@ def fit_statistics(observed, predicted, n_parameters):
     sst = float(np.sum((observed - np.mean(observed)) ** 2))
     r2 = float(1.0 - sse / sst) if sst > 0 else np.nan
 
-    n = len(observed)
-    adjusted_r2 = (
-        float(1.0 - (1.0 - r2) * (n - 1.0) / (n - n_parameters))
-        if np.isfinite(r2) and n > n_parameters
-        else np.nan
-    )
-
     return {
         "SSE_m2": sse,
         "RMSE_m": rmse,
         "MAE_m": mae,
         "R2": r2,
-        "Adjusted_R2_descriptive": adjusted_r2,
     }
 
 
@@ -223,21 +215,27 @@ def fit_ellipse(azimuth_deg, observed_range_m):
 
 
 # -----------------------------------------------------------------------------
-# Affine-scaled Cassini Oval model
+# Cassini Oval model
 # -----------------------------------------------------------------------------
-def cassini_radius(theta_rad, phi_rad, a, c_over_a, delta):
-    """Polar radius of the centered affine-scaled Cassini Oval."""
-    c = c_over_a * a
-    sx = np.exp(delta)
-    sy = np.exp(-delta)
+def cassini_radius(theta_rad, phi_rad, a, b_over_a, internal_scale_log):
+    """Return the Cassini Oval radius used by the computational implementation.
+
+    The published geometric parameters are ``a``, ``b``, and the focus-axis
+    azimuth. ``internal_scale_log`` is an implementation-level coordinate
+    normalization term used by the optimizer and is not reported as a Cassini
+    geometric parameter.
+    """
+    b = b_over_a * a
+    scale_x = np.exp(internal_scale_log)
+    scale_y = np.exp(-internal_scale_log)
 
     relative_angle = theta_rad - phi_rad
-    qx = np.cos(relative_angle) / sx
-    qy = np.sin(relative_angle) / sy
+    qx = np.cos(relative_angle) / scale_x
+    qy = np.sin(relative_angle) / scale_y
     qsum = qx**2 + qy**2
 
     bcoef = 2.0 * a**2 * qsum - 4.0 * a**2 * qx**2
-    ccoef = a**4 - c**4
+    ccoef = a**4 - b**4
     discriminant = np.maximum(bcoef**2 - 4.0 * qsum**2 * ccoef, 0.0)
 
     radius_squared = (-bcoef + np.sqrt(discriminant)) / (2.0 * qsum**2)
@@ -245,15 +243,15 @@ def cassini_radius(theta_rad, phi_rad, a, c_over_a, delta):
 
 
 def fit_cassini(azimuth_deg, observed_range_m):
-    """Fit affine-scaled Cassini Oval parameters by multistart NLS."""
+    """Fit Cassini Oval directional geometry by multistart NLS."""
     theta_obs = geological_to_math_angle(azimuth_deg)
 
     def residual(parameters):
-        phi, log_a, log_ratio_minus_one, delta = parameters
+        phi, log_a, log_ratio_minus_one, internal_scale_log = parameters
         a = np.exp(log_a)
-        c_over_a = 1.0 + np.exp(log_ratio_minus_one)
+        b_over_a = 1.0 + np.exp(log_ratio_minus_one)
         return (
-            cassini_radius(theta_obs, phi, a, c_over_a, delta)
+            cassini_radius(theta_obs, phi, a, b_over_a, internal_scale_log)
             - observed_range_m
         )
 
@@ -292,24 +290,18 @@ def fit_cassini(azimuth_deg, observed_range_m):
 
     phi = float(best.x[0] % np.pi)
     a = float(np.exp(best.x[1]))
-    c_over_a = float(1.0 + np.exp(best.x[2]))
-    c = float(c_over_a * a)
-    delta = float(best.x[3])
-    sx = float(np.exp(delta))
-    sy = float(np.exp(-delta))
+    b_over_a = float(1.0 + np.exp(best.x[2]))
+    b = float(b_over_a * a)
+    internal_scale_log = float(best.x[3])
 
     def predict(azimuth):
         return cassini_radius(
-            geological_to_math_angle(azimuth), phi, a, c_over_a, delta
+            geological_to_math_angle(azimuth), phi, a, b_over_a, internal_scale_log
         )
 
     params = {
         "Cassini_a_m": a,
-        "Cassini_c_m": c,
-        "c_over_a": c_over_a,
-        "sx": sx,
-        "sy": sy,
-        "sx_over_sy": sx / sy,
+        "Cassini_b_m": b,
         "Focus_Axis_Azimuth_deg": math_axis_to_geological_azimuth(phi),
     }
     return predict, params
@@ -320,7 +312,7 @@ def fit_cassini(azimuth_deg, observed_range_m):
 # -----------------------------------------------------------------------------
 def build_model_result(name, predict, params, observed_azimuth, observed_range):
     predicted = np.asarray(predict(observed_azimuth), dtype=float)
-    stats = fit_statistics(observed_range, predicted, n_parameters=len(params))
+    stats = fit_statistics(observed_range, predicted)
     rmax, azmax, rmin, azmin = radial_extrema(predict)
 
     stats.update(

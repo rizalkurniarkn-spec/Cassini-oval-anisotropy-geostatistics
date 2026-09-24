@@ -4,7 +4,7 @@
 This public-repository script compares two anisotropy geometries using the
 same directional-range observations used in the study:
     1. Elliptical anisotropy
-    2. Affine-scaled Cassini Oval anisotropy
+    2. Cassini Oval anisotropy
 
 The Cassini fit retains the original regularized geometric-distance approach,
 including translation and affine-scale penalties. No confidential drillhole
@@ -164,11 +164,11 @@ def fit_ellipse(azimuth_deg, observed_range_m):
 
 
 # -----------------------------------------------------------------------------
-# Affine-scaled Cassini Oval model
+# Cassini Oval model
 # -----------------------------------------------------------------------------
-def cassini_implicit(x, y, a, c):
+def cassini_implicit(x, y, a, b):
     """Implicit Cassini Oval function F(x,y)=0."""
-    return (x * x + y * y + a * a) ** 2 - 4.0 * a * a * x * x - c**4
+    return (x * x + y * y + a * a) ** 2 - 4.0 * a * a * x * x - b**4
 
 
 def unpack_cassini_parameters(parameters, qmax):
@@ -178,8 +178,8 @@ def unpack_cassini_parameters(parameters, qmax):
     return (
         parameters[0],          # phi
         a,
-        a * q,                  # c
-        q,                      # c/a
+        a * q,                  # b
+        q,                      # b/a
         parameters[3],          # x0
         parameters[4],          # y0
         np.exp(parameters[5]),  # sx
@@ -188,20 +188,20 @@ def unpack_cassini_parameters(parameters, qmax):
 
 
 def fit_cassini(azimuth_deg, observed_range_m):
-    """Fit the regularized affine-scaled Cassini Oval model."""
+    """Fit the Cassini Oval directional geometry with regularized NLS."""
     scale = float(np.max(observed_range_m))
     xn, yn = polar_to_xy(azimuth_deg, observed_range_m / scale)
 
     def geometric_residual(parameters, qmax):
-        phi, a, c, _, x0, y0, sx, sy = unpack_cassini_parameters(parameters, qmax)
-        x_rot, y_rot = rotate(xn - x0, yn - y0, phi)
-        x_scaled = x_rot / sx
-        y_scaled = y_rot / sy
+        phi, a, b, _, shift_x, shift_y, scale_x, scale_y = unpack_cassini_parameters(parameters, qmax)
+        x_rot, y_rot = rotate(xn - shift_x, yn - shift_y, phi)
+        x_scaled = x_rot / scale_x
+        y_scaled = y_rot / scale_y
 
-        gx = 4.0 * x_scaled * (x_scaled**2 + y_scaled**2 - a**2) / sx
-        gy = 4.0 * y_scaled * (x_scaled**2 + y_scaled**2 + a**2) / sy
+        gx = 4.0 * x_scaled * (x_scaled**2 + y_scaled**2 - a**2) / scale_x
+        gy = 4.0 * y_scaled * (x_scaled**2 + y_scaled**2 + a**2) / scale_y
 
-        return cassini_implicit(x_scaled, y_scaled, a, c) / (
+        return cassini_implicit(x_scaled, y_scaled, a, b) / (
             np.hypot(gx, gy) + 1e-12
         )
 
@@ -255,17 +255,17 @@ def fit_cassini(azimuth_deg, observed_range_m):
         raise RuntimeError("Cassini Oval fitting did not converge.")
 
     parameters, qmax, lambda_scale, lambda_shift = winner
-    phi, a, c, c_over_a, x0, y0, sx, sy = unpack_cassini_parameters(parameters, qmax)
+    phi, a, b, b_over_a, shift_x, shift_y, scale_x, scale_y = unpack_cassini_parameters(parameters, qmax)
 
     def predict(azimuth):
         def ray_root(theta):
             def function(radius):
                 x_rot, y_rot = rotate(
-                    radius * np.cos(theta) / scale - x0,
-                    radius * np.sin(theta) / scale - y0,
+                    radius * np.cos(theta) / scale - shift_x,
+                    radius * np.sin(theta) / scale - shift_y,
                     phi,
                 )
-                return cassini_implicit(x_rot / sx, y_rot / sy, a, c)
+                return cassini_implicit(x_rot / scale_x, y_rot / scale_y, a, b)
 
             upper = 4.0 * scale
             if function(0.0) * function(upper) < 0.0:
@@ -293,18 +293,8 @@ def fit_cassini(azimuth_deg, observed_range_m):
 
     params = {
         "Cassini_a_m": float(a * scale),
-        "Cassini_c_m": float(c * scale),
-        "c_over_a": float(c_over_a),
-        "sx": float(sx),
-        "sy": float(sy),
-        "sx_over_sy": float(sx / sy),
-        "x0_m": float(x0 * scale),
-        "y0_m": float(y0 * scale),
+        "Cassini_b_m": float(b * scale),
         "Focus_Axis_Azimuth_deg": float((90.0 - np.degrees(phi)) % 180.0),
-        "QMAX": float(qmax),
-        "lambda_scale": float(lambda_scale),
-        "lambda_shift": float(lambda_shift),
-        "Geometric_RMSE_approx_m": float(best_geometric_rmse),
     }
     return predict, params
 
