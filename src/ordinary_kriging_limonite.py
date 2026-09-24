@@ -27,7 +27,21 @@ from scipy.ndimage import binary_fill_holes, binary_closing
 warnings.filterwarnings("ignore")
 
 # Repository root used for portable example input/output paths.
-REPO_ROOT = Path(__file__).resolve().parents[1]
+def resolve_repo_root():
+    """Return repository root in both terminal scripts and Jupyter notebooks."""
+    if "__file__" in globals():
+        return Path(__file__).resolve().parents[1]
+
+    # Jupyter/IPython does not define __file__. Search the current working
+    # directory and its parents for the repository structure.
+    cwd = Path.cwd().resolve()
+    for candidate in (cwd, *cwd.parents):
+        if (candidate / "src").is_dir() and (candidate / "example").is_dir():
+            return candidate
+    return cwd
+
+
+REPO_ROOT = resolve_repo_root()
 
 
 # ============================================================

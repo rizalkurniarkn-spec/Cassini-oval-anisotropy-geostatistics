@@ -31,7 +31,21 @@ import numpy as np
 import pandas as pd
 from scipy.optimize import brentq, least_squares
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
+def resolve_repo_root():
+    """Return repository root in both terminal scripts and Jupyter notebooks."""
+    if "__file__" in globals():
+        return Path(__file__).resolve().parents[1]
+
+    # Jupyter/IPython does not define __file__. Search the current working
+    # directory and its parents for the repository structure.
+    cwd = Path.cwd().resolve()
+    for candidate in (cwd, *cwd.parents):
+        if (candidate / "src").is_dir() and (candidate / "example").is_dir():
+            return candidate
+    return cwd
+
+
+REPO_ROOT = resolve_repo_root()
 DEFAULT_OUTPUT_DIR = REPO_ROOT / "outputs" / "nls_saprolite"
 
 AZIMUTH_DEG = np.arange(0.0, 360.0, 22.5)
