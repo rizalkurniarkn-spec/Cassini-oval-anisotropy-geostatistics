@@ -4,47 +4,51 @@ This repository contains the source code associated with the manuscript:
 
 **"A Non-Elliptical Cassini Oval Anisotropy for Geostatistical Estimation and Simulation: Application to a Laterite Nickel Deposit"**
 
-The repository provides the computational implementation used to investigate conventional elliptical anisotropy and the proposed non-elliptical Cassini Oval anisotropy model for geostatistical estimation and simulation of laterite zone thickness.
+The repository provides the computational implementation used to compare conventional elliptical anisotropy with the proposed non-elliptical Cassini Oval anisotropy model for geostatistical estimation and simulation of laterite zone thickness.
 
 ## Overview
 
 The computational workflow includes:
 
-- directional experimental variogram analysis;
-- elliptical anisotropy modeling;
-- Cassini Oval anisotropy modeling;
-- effective-distance calculation;
-- nonlinear least-squares (NLS) fitting;
+- directional anisotropy modeling;
+- elliptical anisotropy fitting;
+- Cassini Oval anisotropy fitting;
+- nonlinear least-squares (NLS) optimization;
+- directional range evaluation;
 - Ordinary Kriging (OK);
 - Leave-One-Out Cross-Validation (LOOCV);
 - Sequential Gaussian Simulation (SGS);
-- statistical evaluation and visualization of estimation and simulation results.
+- normal-score transformation and back-transformation;
+- statistical evaluation and uncertainty analysis.
 
-The methodology was applied to the thickness of limonite and saprolite zones in a laterite nickel deposit.
+The methodology is implemented separately for the limonite and saprolite zones of a laterite nickel deposit.
+
+The main comparison throughout the repository is between:
+
+1. **Elliptical anisotropy**, representing the conventional anisotropy model; and
+2. **Cassini Oval anisotropy**, representing the proposed non-elliptical spatial continuity model.
 
 ## Repository Structure
-
-The repository is organized as follows:
 
 ```text
 cassini-oval-anisotropy-geostatistics/
 │
 ├── README.md
+├── CODE_INDEX.md
 ├── LICENSE
 ├── requirements.txt
+├── .gitignore
 │
 ├── src/
-│   ├── directional_variogram.py
-│   ├── ellipse_anisotropy.py
-│   ├── cassini_anisotropy.py
-│   ├── nls_fitting.py
-│   ├── ordinary_kriging.py
-│   ├── loocv.py
-│   └── sequential_gaussian_simulation.py
+│   ├── nls_fitting_limonite.py
+│   ├── nls_fitting_saprolite.py
+│   ├── ordinary_kriging_limonite.py
+│   ├── ordinary_kriging_saprolite.py
+│   ├── sgs_limonite.py
+│   └── sgs_saprolite.py
 │
-├── example/
-│   ├── synthetic_data.csv
-│   └── run_example.py
-│
-└── outputs/
-    └── example_results/
+└── example/
+    ├── README.md
+    ├── synthetic_thickness.csv
+    ├── synthetic_thickness.xlsx
+    └── quick_test.py
